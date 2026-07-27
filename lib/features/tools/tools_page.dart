@@ -20,12 +20,12 @@ class ToolsPage extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Text(
-            'Tools',
+            '工具',
             style: Theme.of(context).textTheme.headlineSmall,
           ),
           const SizedBox(height: 8),
           Text(
-            'NTP settings, password management\nand system tools coming soon.',
+            'NTP 设置、密码管理与系统工具\n即将上线。',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,

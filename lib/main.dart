@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:lanxi/features/connection/app_state.dart';
 import 'package:lanxi/features/connection/connection_screen.dart';
 import 'package:lanxi/features/home_page.dart';
@@ -40,6 +41,16 @@ class _LanxiAppState extends State<LanxiApp> {
     return MaterialApp(
       title: 'Lanxi',
       debugShowCheckedModeBanner: false,
+      locale: const Locale('zh', 'CN'),
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('zh', 'CN'),
+        Locale('en', 'US'),
+      ],
       theme: ThemeData(
         colorSchemeSeed: Colors.indigo,
         useMaterial3: true,

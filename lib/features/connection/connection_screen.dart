@@ -61,7 +61,7 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
         await service.getSystemInfo();
       } catch (e) {
         if (!mounted) return;
-        _showError('Connected but failed to reach server: $e');
+        _showError('已连接但无法获取服务器信息：$e');
         setState(() => _connecting = false);
         return;
       }
@@ -69,7 +69,7 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
       widget.appState.connect(service);
       appLogger.i('SSH connection established to ${profile.host}');
     } catch (e) {
-      _showError('Connection failed: $e');
+      _showError('连接失败：$e');
     } finally {
       if (mounted) setState(() => _connecting = false);
     }
@@ -87,7 +87,7 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
     final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Connect to Server'),
+        title: const Text('连接服务器'),
         centerTitle: true,
       ),
       body: SingleChildScrollView(
@@ -108,7 +108,7 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
               ),
               const SizedBox(height: 4),
               Text(
-                'SSH Server Management',
+                'SSH 服务器管理',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -120,12 +120,12 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
               TextFormField(
                 controller: _hostCtrl,
                 decoration: const InputDecoration(
-                  labelText: 'Host',
+                  labelText: '主机地址',
                   hintText: '192.168.1.100',
                   prefixIcon: Icon(Icons.computer),
                 ),
                 validator: (v) => (v == null || v.trim().isEmpty)
-                    ? 'Host is required'
+                    ? '请输入主机地址'
                     : null,
               ),
               const SizedBox(height: 16),
@@ -134,7 +134,7 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
               TextFormField(
                 controller: _portCtrl,
                 decoration: const InputDecoration(
-                  labelText: 'Port',
+                  labelText: '端口',
                   hintText: '22',
                   prefixIcon: Icon(Icons.settings_ethernet),
                 ),
@@ -146,12 +146,12 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
               TextFormField(
                 controller: _userCtrl,
                 decoration: const InputDecoration(
-                  labelText: 'Username',
+                  labelText: '用户名',
                   hintText: 'root',
                   prefixIcon: Icon(Icons.person),
                 ),
                 validator: (v) => (v == null || v.trim().isEmpty)
-                    ? 'Username is required'
+                    ? '请输入用户名'
                     : null,
               ),
               const SizedBox(height: 16),
@@ -160,7 +160,7 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
               TextFormField(
                 controller: _passCtrl,
                 decoration: const InputDecoration(
-                  labelText: 'Password (optional)',
+                  labelText: '密码（可选）',
                   prefixIcon: Icon(Icons.lock),
                 ),
                 obscureText: true,
@@ -171,8 +171,8 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
               TextFormField(
                 controller: _keyCtrl,
                 decoration: const InputDecoration(
-                  labelText: 'SSH Private Key (optional)',
-                  hintText: 'Paste PEM key here...',
+                  labelText: 'SSH 私钥（可选）',
+                  hintText: '在此粘贴 PEM 私钥...',
                   prefixIcon: Icon(Icons.vpn_key),
                 ),
                 maxLines: 3,
@@ -183,7 +183,7 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
               TextFormField(
                 controller: _apiKeyCtrl,
                 decoration: const InputDecoration(
-                  labelText: '1Panel API Key (optional)',
+                  labelText: '1Panel API 密钥（可选）',
                   prefixIcon: Icon(Icons.api),
                 ),
               ),
@@ -199,7 +199,7 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.power_settings_new),
-                label: Text(_connecting ? 'Connecting...' : 'Connect'),
+                label: Text(_connecting ? '连接中...' : '连接'),
                 style: FilledButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),

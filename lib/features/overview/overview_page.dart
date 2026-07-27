@@ -45,7 +45,7 @@ class _OverviewPageState extends State<OverviewPage> {
       appLogger.e('Failed to fetch system info', e);
       if (!mounted) return;
       setState(() {
-        _error = 'Failed to fetch system info: $e';
+        _error = '获取系统信息失败：$e';
         _loading = false;
       });
     }
@@ -71,7 +71,7 @@ class _OverviewPageState extends State<OverviewPage> {
               FilledButton.tonalIcon(
                 onPressed: _refresh,
                 icon: const Icon(Icons.refresh),
-                label: const Text('Retry'),
+                label: const Text('重试'),
               ),
             ],
           ),
@@ -98,7 +98,7 @@ class _OverviewPageState extends State<OverviewPage> {
           // Memory card
           _MetricCard(
             icon: Icons.storage,
-            title: 'Memory',
+            title: '内存',
             value: '${stats.memUsedMb} / ${stats.memTotalMb} MB',
             subtitle: '${stats.memPercent.toStringAsFixed(1)}%',
             progress: stats.memPercent / 100,
@@ -109,7 +109,7 @@ class _OverviewPageState extends State<OverviewPage> {
           // Disk card
           _MetricCard(
             icon: Icons.disc_full,
-            title: 'Disk',
+            title: '磁盘',
             value: '${stats.diskUsedMb} / ${stats.diskTotalMb} MB',
             subtitle: '${stats.diskPercent.toStringAsFixed(1)}%',
             progress: stats.diskPercent / 100,
@@ -137,24 +137,24 @@ class _OverviewPageState extends State<OverviewPage> {
                       Icon(Icons.info_outline,
                           color: Theme.of(context).colorScheme.primary),
                       const SizedBox(width: 8),
-                      Text('System Info',
+                      Text('系统信息',
                           style: Theme.of(context).textTheme.titleMedium),
                     ],
                   ),
                   const Divider(),
-                  _InfoRow(label: 'Hostname', value: stats.hostName),
+                  _InfoRow(label: '主机名', value: stats.hostName),
                   if (stats.osInfo.isNotEmpty)
-                    _InfoRow(label: 'OS', value: stats.osInfo),
+                    _InfoRow(label: '系统', value: stats.osInfo),
                   _InfoRow(
-                    label: 'Load Average',
+                    label: '负载',
                     value: stats.loadAvg.toStringAsFixed(2),
                   ),
                   _InfoRow(
-                    label: 'Source',
+                    label: '数据来源',
                     value: stats.source.name.toUpperCase(),
                   ),
                   _InfoRow(
-                    label: 'Updated',
+                    label: '更新时间',
                     value: _formatTime(stats.timestamp),
                   ),
                 ],
@@ -169,9 +169,9 @@ class _OverviewPageState extends State<OverviewPage> {
   String _formatTime(DateTime dt) {
     final now = DateTime.now();
     final diff = now.difference(dt);
-    if (diff.inSeconds < 60) return '${diff.inSeconds}s ago';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-    return '${diff.inHours}h ago';
+    if (diff.inSeconds < 60) return '${diff.inSeconds}秒前';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}分钟前';
+    return '${diff.inHours}小时前';
   }
 
   Color _cpuColor(double p) => p > 80

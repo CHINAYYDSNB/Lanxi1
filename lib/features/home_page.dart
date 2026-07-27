@@ -22,7 +22,7 @@ class _HomePageState extends State<HomePage> {
     final service = widget.appState.service;
     if (service == null) {
       return const Scaffold(
-        body: Center(child: Text('No connection')),
+        body: Center(child: Text('未连接')),
       );
     }
 
@@ -39,7 +39,7 @@ class _HomePageState extends State<HomePage> {
         actions: [
           IconButton(
             icon: const Icon(Icons.power_settings_new),
-            tooltip: 'Disconnect',
+            tooltip: '断开连接',
             onPressed: () {
               widget.appState.disconnect();
             },
@@ -57,17 +57,17 @@ class _HomePageState extends State<HomePage> {
           NavigationDestination(
             icon: Icon(Icons.dashboard_outlined),
             selectedIcon: Icon(Icons.dashboard),
-            label: 'Overview',
+            label: '概览',
           ),
           NavigationDestination(
             icon: Icon(Icons.folder_outlined),
             selectedIcon: Icon(Icons.folder),
-            label: 'Files',
+            label: '文件',
           ),
           NavigationDestination(
             icon: Icon(Icons.build_outlined),
             selectedIcon: Icon(Icons.build),
-            label: 'Tools',
+            label: '工具',
           ),
         ],
       ),
@@ -77,11 +77,11 @@ class _HomePageState extends State<HomePage> {
   String _titleForIndex(int index) {
     switch (index) {
       case 0:
-        return 'Overview';
+        return '概览';
       case 1:
-        return 'Files';
+        return '文件';
       case 2:
-        return 'Tools';
+        return '工具';
       default:
         return 'Lanxi';
     }

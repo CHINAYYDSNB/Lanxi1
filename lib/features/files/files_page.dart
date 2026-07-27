@@ -44,7 +44,7 @@ class _FilesPageState extends State<FilesPage> {
       appLogger.e('Failed to list directory $path', e);
       if (!mounted) return;
       setState(() {
-        _error = 'Failed to load: $e';
+        _error = '加载失败：$e';
         _loading = false;
       });
     }
@@ -69,11 +69,11 @@ class _FilesPageState extends State<FilesPage> {
           children: [
             Text(item.name, style: Theme.of(ctx).textTheme.titleMedium),
             const Divider(),
-            _attr(ctx, 'Path', item.path),
-            _attr(ctx, 'Size', item.sizeFormatted),
-            _attr(ctx, 'Type', item.isDir ? 'Directory' : 'File'),
-            _attr(ctx, 'Permissions', item.permissions),
-            _attr(ctx, 'Modified', item.modifiedTime.toString()),
+            _attr(ctx, '路径', item.path),
+            _attr(ctx, '大小', item.sizeFormatted),
+            _attr(ctx, '类型', item.isDir ? '目录' : '文件'),
+            _attr(ctx, '权限', item.permissions),
+            _attr(ctx, '修改时间', item.modifiedTime.toString()),
           ],
         ),
       ),
@@ -137,7 +137,7 @@ class _FilesPageState extends State<FilesPage> {
               FilledButton.tonalIcon(
                 onPressed: () => _navigateTo(_currentPath),
                 icon: const Icon(Icons.refresh),
-                label: const Text('Retry'),
+                label: const Text('重试'),
               ),
             ],
           ),
@@ -155,7 +155,7 @@ class _FilesPageState extends State<FilesPage> {
                 size: 48,
                 color: Theme.of(context).colorScheme.onSurfaceVariant),
             const SizedBox(height: 16),
-            Text('Empty directory',
+            Text('空目录',
                 style: Theme.of(context).textTheme.bodyLarge),
           ],
         ),
@@ -213,9 +213,9 @@ class _FilesPageState extends State<FilesPage> {
   String _formatModified(DateTime dt) {
     final now = DateTime.now();
     final diff = now.difference(dt);
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-    if (diff.inHours < 24) return '${diff.inHours}h ago';
-    if (diff.inDays < 7) return '${diff.inDays}d ago';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}分钟前';
+    if (diff.inHours < 24) return '${diff.inHours}小时前';
+    if (diff.inDays < 7) return '${diff.inDays}天前';
     return '${dt.month}/${dt.day}/${dt.year}';
   }
 
@@ -260,7 +260,7 @@ class _BreadcrumbBar extends StatelessWidget {
             IconButton(
               icon: const Icon(Icons.arrow_back),
               onPressed: onBack,
-              tooltip: 'Parent directory',
+              tooltip: '上级目录',
               visualDensity: VisualDensity.compact,
             ),
           Expanded(
