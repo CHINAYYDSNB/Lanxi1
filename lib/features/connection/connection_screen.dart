@@ -44,8 +44,12 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
     setState(() => _connecting = true);
 
     try {
+      final host = _hostCtrl.text.trim();
       final profile = ServerProfile(
-        host: _hostCtrl.text.trim(),
+        id: ServerProfile.newId(),
+        name: host.isNotEmpty ? host : '临时连接',
+        type: ServerSourceType.ssh,
+        host: host,
         port: int.tryParse(_portCtrl.text.trim()) ?? 22,
         username: _userCtrl.text.trim(),
         password: _passCtrl.text.isNotEmpty ? _passCtrl.text : null,

@@ -8,6 +8,9 @@ void main() {
     group('buildSsh', () {
       test('returns SshServerSource for SSH profile', () {
         const profile = ServerProfile(
+          id: 'p1',
+          name: 'srv',
+          type: ServerSourceType.ssh,
           host: '192.168.1.1',
           username: 'root',
         );
@@ -21,6 +24,9 @@ void main() {
     group('build', () {
       test('builds SSH source when no apiKey', () {
         const profile = ServerProfile(
+          id: 'p2',
+          name: 'srv',
+          type: ServerSourceType.ssh,
           host: '10.0.0.1',
           username: 'admin',
         );
@@ -32,6 +38,9 @@ void main() {
 
       test('throws PlatformNotSupportedException when apiKey is present', () {
         const profile = ServerProfile(
+          id: 'p3',
+          name: 'srv',
+          type: ServerSourceType.panel,
           host: '10.0.0.1',
           username: 'admin',
           apiKey: 'some-api-key',
@@ -46,12 +55,21 @@ void main() {
 
     group('ServerProfile', () {
       test('defaults port to 22', () {
-        const profile = ServerProfile(host: 'x.com', username: 'u');
+        const profile = ServerProfile(
+          id: 'p4',
+          name: 'srv',
+          type: ServerSourceType.ssh,
+          host: 'x.com',
+          username: 'u',
+        );
         expect(profile.port, 22);
       });
 
       test('stores all fields', () {
         const profile = ServerProfile(
+          id: 'p5',
+          name: 'srv',
+          type: ServerSourceType.ssh,
           host: 'x.com',
           port: 2222,
           username: 'u',
