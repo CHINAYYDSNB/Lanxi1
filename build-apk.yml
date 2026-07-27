@@ -1,0 +1,138 @@
+name: build-apk
+
+on:
+  push:
+    branches-ignore:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.x'
+          channel: 'stable'
+
+      - name: Verify Commit Prefix
+        run: |
+          COMMIT_MSG="${{ github.event.head_commit.message || github.event.pull_request.title }}"
+          echo "Commit/PR: $COMMIT_MSG"
+
+          # Block test: from merging to main
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            if [[ "$COMMIT_MSG" =~ ^test: ]]; then
+              echo "::error::🚫 'test:' commits are build-only and CANNOT be merged into main."
+              exit 1
+            fi
+          fi
+
+          # Validate prefix format
+          if ! [[ "$COMMIT_MSG" =~ ^(test|wip|done|shell|fix|refactor|partial|blocked): ]]; then
+            echo "::warning::Commit prefix not recognized. Allowed: test:/wip:/done:/shell:/fix:/refactor:"
+          fi
+
+      - name: Flutter Pub Get
+        run: flutter pub get
+
+      - name: Generate android/ if missing
+        run: |
+          if [ ! -d "android" ]; then
+            echo "android/ not found, generating via flutter create..."
+            flutter create --platforms=android .
+          fi
+
+      - name: Restore keystore (placeholder for real signing)
+        run: |
+          mkdir -p android/app/keystore
+          # In real CI, restore from secrets. For now, use debug signing.
+          echo "Using debug signing (test builds only)."
+
+      - name: Flutter Analyze
+        run: flutter analyze --fatal-infos
+
+      - name: Check for forbidden patterns
+        run: |
+          echo "::group::Anti-Cheat Checks"
+
+          # Ban print()
+          if grep -rn "print(" lib/ --include="*.dart" | grep -v "// print" | grep -v "debugPrint"; then
+            echo "::error::print() found. Use appLogger instead."
+            exit 1
+          fi
+
+          # Ban fake tests
+          if grep -rn "expect(true, true)" test/; then
+            echo "::error::Fake test detected: expect(true, true)"
+            exit 1
+          fi
+          if grep -rn "expect(1, 1)" test/; then
+            echo "::error::Fake test detected: expect(1, 1)"
+            exit 1
+          fi
+
+          # Ban UnimplementedError in shipped code
+          if grep -rn "UnimplementedError" lib/ --include="*.dart"; then
+            echo "::error::UnimplementedError found in lib/. Must use FallbackException."
+            exit 1
+          fi
+
+          # Ban single-quote $var in source files (Dart interpolation bug)
+          if grep -rn "'[^']*\$_[a-zA-Z]" lib/ --include="*.dart"; then
+            echo "::warning::Possible single-quote string with \$var found. Verify interpolation."
+          fi
+
+          echo "::endgroup::"
+
+      - name: Flutter Test with Coverage
+        run: flutter test --coverage
+
+      - name: Check Coverage Threshold (70%)
+        run: |
+          if [ -f "coverage/lcov.info" ]; then
+            COVERAGE=$(lcov --summary coverage/lcov.info 2>/dev/null | grep "lines" | awk '{print $2}' | sed 's/%//')
+            echo "Coverage: ${COVERAGE}%"
+            if (( $(echo "$COVERAGE < 70" | bc -l) )); then
+              echo "::error::Coverage ${COVERAGE}% is below 70% threshold."
+              exit 1
+            fi
+          else
+            echo "::warning::No coverage report found."
+          fi
+
+      - name: Build APK (Debug for test:, Release for done:)
+        run: |
+          COMMIT_MSG="${{ github.event.head_commit.message || github.event.pull_request.title }}"
+          if [[ "$COMMIT_MSG" =~ ^test: ]] || [[ "$COMMIT_MSG" =~ ^wip: ]]; then
+            echo "Building DEBUG APK (test/wip build)"
+            flutter build apk --debug
+            APK_PATH="build/app/outputs/flutter-apk/app-debug.apk"
+          else
+            echo "Building RELEASE APK"
+            flutter build apk --release
+            APK_PATH="build/app/outputs/flutter-apk/app-release.apk"
+          fi
+
+          # Verify APK type matches prefix
+          if [[ "$COMMIT_MSG" =~ ^test: ]] && [[ "$APK_PATH" =~ release ]]; then
+            echo "::error::test(:) commits must not produce release APK"
+            exit 1
+          fi
+
+          echo "APK_PATH=$APK_PATH" >> $GITHUB_ENV
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lanxi-apk
+          path: ${{ env.APK_PATH }}
+          retention-days: 7
