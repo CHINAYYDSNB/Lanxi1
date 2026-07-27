@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:lanxi/core/logger.dart';
 import 'package:lanxi/models/domain/system_stats.dart';
 import 'package:lanxi/services/server_service.dart';
+import 'package:lanxi/widgets/app_card.dart';
 
 /// System monitoring dashboard.
 ///
@@ -126,39 +127,28 @@ class _OverviewPageState extends State<OverviewPage> {
           ),
 
           // System info card
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.info_outline,
-                          color: Theme.of(context).colorScheme.primary),
-                      const SizedBox(width: 8),
-                      Text('系统信息',
-                          style: Theme.of(context).textTheme.titleMedium),
-                    ],
-                  ),
-                  const Divider(),
-                  _InfoRow(label: '主机名', value: stats.hostName),
-                  if (stats.osInfo.isNotEmpty)
-                    _InfoRow(label: '系统', value: stats.osInfo),
-                  _InfoRow(
-                    label: '负载',
-                    value: stats.loadAvg.toStringAsFixed(2),
-                  ),
-                  _InfoRow(
-                    label: '数据来源',
-                    value: stats.source.name.toUpperCase(),
-                  ),
-                  _InfoRow(
-                    label: '更新时间',
-                    value: _formatTime(stats.timestamp),
-                  ),
-                ],
-              ),
+          AppCard(
+            icon: Icons.info_outline,
+            title: '系统信息',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _InfoRow(label: '主机名', value: stats.hostName),
+                if (stats.osInfo.isNotEmpty)
+                  _InfoRow(label: '系统', value: stats.osInfo),
+                _InfoRow(
+                  label: '负载',
+                  value: stats.loadAvg.toStringAsFixed(2),
+                ),
+                _InfoRow(
+                  label: '数据来源',
+                  value: stats.source.name.toUpperCase(),
+                ),
+                _InfoRow(
+                  label: '更新时间',
+                  value: _formatTime(stats.timestamp),
+                ),
+              ],
             ),
           ),
         ],
@@ -210,49 +200,42 @@ class _MetricCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(icon, color: color),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(title,
-                      style: Theme.of(context).textTheme.titleMedium),
-                ),
-                Text(value,
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        )),
-              ],
+    return AppCard(
+      icon: icon,
+      title: title,
+      trailing: Text(
+        value,
+        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: color,
             ),
-            const SizedBox(height: 12),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: progress.clamp(0.0, 1.0),
-                minHeight: 8,
-                // ignore: deprecated_member_use
-                backgroundColor: color.withOpacity(0.15),
-                valueColor: AlwaysStoppedAnimation(color),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: progress.clamp(0.0, 1.0),
+              minHeight: 8,
+              // ignore: deprecated_member_use
+              backgroundColor: color.withOpacity(0.15),
+              valueColor: AlwaysStoppedAnimation(color),
+            ),
+          ),
+          if (subtitle != null) ...[
+            const SizedBox(height: 4),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Text(
+                subtitle!,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: color,
+                    ),
               ),
             ),
-            if (subtitle != null) ...[
-              const SizedBox(height: 4),
-              Align(
-                alignment: Alignment.centerRight,
-                child: Text(subtitle!,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: color,
-                        )),
-              ),
-            ],
           ],
-        ),
+        ],
       ),
     );
   }
@@ -271,24 +254,31 @@ class _DiskTile extends StatelessWidget {
         : pct > 70
             ? Colors.orange
             : Colors.blue;
-    return Card(
-      child: ListTile(
-        leading: Icon(Icons.folder, color: color),
-        title: Text(disk.path),
-        subtitle: ClipRRect(
-          borderRadius: BorderRadius.circular(4),
-          child: LinearProgressIndicator(
-            value: (pct / 100).clamp(0.0, 1.0),
-            minHeight: 4,
-            // ignore: deprecated_member_use
-            backgroundColor: color.withOpacity(0.15),
-            valueColor: AlwaysStoppedAnimation(color),
+    return AppCard(
+      icon: Icons.folder,
+      title: disk.path,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: (pct / 100).clamp(0.0, 1.0),
+              minHeight: 4,
+              // ignore: deprecated_member_use
+              backgroundColor: color.withOpacity(0.15),
+              valueColor: AlwaysStoppedAnimation(color),
+            ),
           ),
-        ),
-        trailing: Text(
-          '${disk.usedMb} / ${disk.totalMb} MB',
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
+          const SizedBox(height: 4),
+          Align(
+            alignment: Alignment.centerRight,
+            child: Text(
+              '${disk.usedMb} / ${disk.totalMb} MB',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
+        ],
       ),
     );
   }

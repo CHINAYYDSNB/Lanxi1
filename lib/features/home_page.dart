@@ -29,7 +29,7 @@ class _HomePageState extends State<HomePage> {
     final pages = <Widget>[
       OverviewPage(service: service),
       FilesPage(service: service),
-      const ToolsPage(),
+      ToolsPage(service: service),
     ];
 
     return Scaffold(

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:lanxi/core/logger.dart';
 import 'package:lanxi/models/domain/file_item.dart';
 import 'package:lanxi/services/server_service.dart';
+import 'package:lanxi/widgets/app_card.dart';
 
 /// File browser with breadcrumb navigation.
 class FilesPage extends StatefulWidget {
@@ -170,25 +171,32 @@ class _FilesPageState extends State<FilesPage> {
         separatorBuilder: (_, __) => const Divider(height: 1),
         itemBuilder: (ctx, i) {
           final item = items[i];
-          return ListTile(
-            leading: Icon(
-              item.isDir ? Icons.folder : _fileIcon(item.name),
-              color: item.isDir
-                  ? Colors.amber.shade300
-                  : Theme.of(ctx).colorScheme.primary,
+          return AppCard(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+            child: ListTile(
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              leading: Icon(
+                item.isDir ? Icons.folder : _fileIcon(item.name),
+                color: item.isDir
+                    ? Colors.amber.shade300
+                    : Theme.of(ctx).colorScheme.primary,
+              ),
+              title: Text(item.name,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontWeight:
+                        item.isDir ? FontWeight.w500 : FontWeight.normal,
+                  )),
+              subtitle: Text(
+                '${item.sizeFormatted}  ·  ${_formatModified(item.modifiedTime)}',
+                style: Theme.of(ctx).textTheme.bodySmall,
+              ),
+              trailing: item.isDir
+                  ? const Icon(Icons.chevron_right, size: 18)
+                  : null,
+              onTap: () => _openItem(item),
             ),
-            title: Text(item.name,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontWeight: item.isDir ? FontWeight.w500 : FontWeight.normal,
-                )),
-            subtitle: Text(
-              '${item.sizeFormatted}  ·  ${_formatModified(item.modifiedTime)}',
-              style: Theme.of(ctx).textTheme.bodySmall,
-            ),
-            trailing:
-                item.isDir ? const Icon(Icons.chevron_right, size: 18) : null,
-            onTap: () => _openItem(item),
           );
         },
       ),
