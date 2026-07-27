@@ -1,7 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:lanxi/core/logger.dart';
+import 'package:lanxi/core/source/panel_detector.dart';
+import 'package:lanxi/features/terminal/terminal_page.dart';
 import 'package:lanxi/services/server_service.dart';
 import 'package:lanxi/widgets/app_card.dart';
+
+/// Fixed 1Panel installer command (double-quoted; runs via SSH only).
+// CI constitution: SSH command strings MUST use double quotes. The `$(...)`
+// is shell syntax, not Dart interpolation, so double quotes are required.
+// ignore: prefer_single_quotes
+const String _k1PanelInstallCommand = "bash -c \"\$(curl -sSL https://resource.fit2cloud.com/1panel/package/v2/quick_start.sh)\"";
 
 /// System tools: NTP sync and root password change.
 ///
@@ -18,10 +26,96 @@ class ToolsPage extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        _InstallPanelCard(service: service),
+        const SizedBox(height: 12),
         _NtpCard(service: service),
         const SizedBox(height: 12),
         _PasswordCard(service: service),
       ],
+    );
+  }
+}
+
+/// Detects an existing control panel and offers to install 1Panel over SSH
+/// when none is found.
+class _InstallPanelCard extends StatefulWidget {
+  final ServerService service;
+
+  const _InstallPanelCard({required this.service});
+
+  @override
+  State<_InstallPanelCard> createState() => _InstallPanelCardState();
+}
+
+class _InstallPanelCardState extends State<_InstallPanelCard> {
+  bool _checking = true;
+  String? _statusText;
+
+  @override
+  void initState() {
+    super.initState();
+    _detect();
+  }
+
+  Future<void> _detect() async {
+    try {
+      final status = await widget.service.detectPanel();
+      if (!mounted) return;
+      setState(() {
+        _checking = false;
+        _statusText = switch (status) {
+          PanelStatus.onePanel => '已检测到 1Panel',
+          PanelStatus.baota => '已检测到 宝塔（Baota）',
+          PanelStatus.none => null,
+        };
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _checking = false;
+        _statusText = '检测失败：$e';
+      });
+    }
+  }
+
+  void _install() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => TerminalPage(
+          service: widget.service,
+          command: _k1PanelInstallCommand,
+          title: '安装 1Panel',
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      icon: Icons.cloud_download_outlined,
+      title: '1Panel 面板',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (_checking)
+            const Text('正在检测服务器面板...')
+          else if (_statusText != null)
+            Text(_statusText!)
+          else ...[
+            const Text('未检测到 1Panel 或宝塔，可在 SSH 连接上安装 1Panel。'),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: _install,
+                icon: const Icon(Icons.download),
+                label: const Text('安装 1Panel'),
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }
