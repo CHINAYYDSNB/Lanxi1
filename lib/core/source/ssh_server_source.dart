@@ -1,34 +1,72 @@
 /// SSH-backed implementation of [ServerSource].
 ///
-/// Every method executes a POSIX shell command via [SshConnection]
-/// and parses the output into the appropriate model.
+/// Lifecycle:
+///   1. [SshSessionPool.connect] establishes the TCP/SSH session.
+///   2. [SSHClient.execute] runs each command and returns [SSHSession].
+///   3. Each command reads [SSHSession.stdout] to completion.
+///   4. [SshSessionPool.releaseAll] or idle timeout closes the connection.
 library;
+
+import 'dart:async';
+import 'dart:convert';
+import 'package:dartssh2/dartssh2.dart';
 
 import 'package:lanxi/core/logger.dart';
 import 'package:lanxi/core/ssh/ssh_connection.dart';
+import 'package:lanxi/core/ssh/ssh_session_pool.dart';
 import 'package:lanxi/core/source/server_source.dart';
 import 'package:lanxi/models/compress_result.dart';
 import 'package:lanxi/models/domain/file_item.dart';
 import 'package:lanxi/models/domain/system_stats.dart';
 
 class SshServerSource implements ServerSource {
-  final SshConnection _ssh;
+  final SshSessionPool _pool;
+  final SshCredentials _credentials;
+  SSHClient? _client;
 
-  SshServerSource(this._ssh);
+  SshServerSource({
+    required SshSessionPool pool,
+    required SshCredentials credentials,
+  })  : _pool = pool,
+        _credentials = credentials;
 
-  // ── Monitoring ──
+  /// Lazily establish (or reuse) the SSH connection.
+  Future<SSHClient> _getClient() async {
+    if (_client == null) {
+      appLogger.i('SshServerSource: connecting to ${_credentials.poolKey}');
+      _client = await _pool.connect(_credentials);
+    }
+    return _client!;
+  }
+
+  /// Execute a single command and return stdout as a string.
+  Future<String> _exec(String cmd) async {
+    final client = await _getClient();
+    final session = await client.execute(cmd);
+    final lines = await session.stdout
+        .map((chunk) => utf8.decode(chunk.toList()))
+        .join();
+    // Wait for channel close, then check exit code
+    await session.done;
+    if (session.exitCode != null && session.exitCode != 0) {
+      appLogger.w('Command exited with code ${session.exitCode}: $cmd');
+    }
+    return lines.trim();
+  }
+
+  // ── ServerSource implementation ──
 
   @override
   Future<SystemStats> getSystemInfo() async {
     const cmd = 'top -bn1 | head -5; free -m; df -h';
-    final output = await _ssh.exec(cmd);
+    final output = await _exec(cmd);
     return _parseSystemInfo(output);
   }
 
   @override
   Future<List<FileItem>> listDir(String path) async {
     final cmd = "ls -la '$path'";
-    final output = await _ssh.exec(cmd);
+    final output = await _exec(cmd);
     return _parseFileListing(output, path);
   }
 
@@ -37,7 +75,7 @@ class SshServerSource implements ServerSource {
     final srcJoined = src.map((s) => '"$s"').join(' ');
     final cmd = "tar -czf '$dest' $srcJoined";
     final start = DateTime.now();
-    final output = await _ssh.exec(cmd);
+    final output = await _exec(cmd);
     final duration = DateTime.now().difference(start);
     return CompressResult(
       destPath: dest,
@@ -51,15 +89,24 @@ class SshServerSource implements ServerSource {
   Future<void> setNtp(String server) async {
     // ignore: prefer_single_quotes
     final cmd = "timedatectl set-ntp true && timedatectl set-timezone $server";
-    await _ssh.exec(cmd);
+    await _exec(cmd);
     appLogger.i('NTP set to $server');
   }
 
   @override
   Future<void> changeRootPassword(String newPass) async {
     final cmd = "echo 'root:$newPass' | chpasswd";
-    await _ssh.exec(cmd);
+    await _exec(cmd);
     appLogger.i('Root password changed');
+  }
+
+  /// Release the underlying SSH connection back to the pool.
+  Future<void> disconnect() async {
+    if (_client != null) {
+      appLogger.i('SshServerSource: releasing ${_credentials.poolKey}');
+      _pool.releaseIdle();
+      _client = null;
+    }
   }
 
   // ── Parsing helpers ──

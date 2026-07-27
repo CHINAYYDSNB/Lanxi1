@@ -7,6 +7,7 @@ library;
 
 import 'package:lanxi/core/logger.dart';
 import 'package:lanxi/core/ssh/ssh_connection.dart';
+import 'package:lanxi/core/ssh/ssh_session_pool.dart';
 import 'package:lanxi/core/source/server_source.dart';
 import 'package:lanxi/core/source/ssh_server_source.dart';
 
@@ -37,7 +38,6 @@ abstract final class ServerSourceFactory {
   static ServerSource build(ServerProfile profile) {
     if (profile.apiKey != null && profile.apiKey!.isNotEmpty) {
       appLogger.i('ServerSourceFactory: building panel-fallback source');
-      // Panel + SSH fallback — requires Panel classes (Phase 1 placeholder).
       throw UnimplementedError(
         'FallbackServerSource requires the panel layer. '
         'Use ServerSourceFactory.buildSsh() for now.',
@@ -57,57 +57,9 @@ abstract final class ServerSourceFactory {
       password: profile.password,
       privateKey: profile.sshKey,
     );
-    // In a real app the connection is established lazily or
-    // injected. Here we just wrap it.
-    final conn = _DeferredSshConnection(creds);
-    return SshServerSource(conn);
+    return SshServerSource(
+      pool: SshSessionPool(),
+      credentials: creds,
+    );
   }
-}
-
-/// Thin wrapper that defers socket creation until first use.
-class _DeferredSshConnection implements SshConnection {
-  final SshCredentials credentials;
-  SshConnection? _inner;
-
-  _DeferredSshConnection(this.credentials);
-
-  Future<SshConnection> _ensure() async {
-    if (_inner == null || !_inner!.isConnected) {
-      // Inline import to avoid circular dependency.
-      // Real implementation connects via dartssh2.
-      throw UnimplementedError(
-        'SSH connection not yet established. Use SshSessionPool.connect().',
-      );
-    }
-    return _inner!;
-  }
-
-  @override
-  Future<void> connect() async {
-    // This would create a real dartssh2 SSHClient.
-    throw UnimplementedError('connect() deferred — use SshSessionPool');
-  }
-
-  @override
-  Future<String> exec(String command) async {
-    final conn = await _ensure();
-    return conn.exec(command);
-  }
-
-  @override
-  Stream<String> execStream(String command) =>
-      throw UnimplementedError('execStream deferred');
-
-  @override
-  Future<SshExecResult> execWithStderr(String command) =>
-      throw UnimplementedError('execWithStderr deferred');
-
-  @override
-  Future<void> disconnect() async {
-    await _inner?.disconnect();
-    _inner = null;
-  }
-
-  @override
-  bool get isConnected => _inner?.isConnected ?? false;
 }

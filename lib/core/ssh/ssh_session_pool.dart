@@ -8,9 +8,11 @@ library;
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show SocketException;
 import 'package:dartssh2/dartssh2.dart';
 
 import '../logger.dart';
+import '../source/exceptions.dart';
 import 'ssh_connection.dart';
 
 /// State of a pooled SSH connection.
@@ -71,6 +73,9 @@ class SshSessionPool {
   ///
   /// If a connection with the same [SshCredentials.poolKey] already exists
   /// and is still connected, returns it without creating a new TCP socket.
+  ///
+  /// Throws [SshConnectionException] on socket errors with a user-friendly
+  /// message that includes the host, port, and OS error details.
   Future<SSHClient> connect(SshCredentials credentials) async {
     final key = credentials.poolKey;
     final existing = _entries[key];
@@ -81,22 +86,68 @@ class SshSessionPool {
     }
 
     appLogger.i('SshSessionPool: opening new connection $key');
-    final socket = await SSHSocket.connect(
-      credentials.host,
-      credentials.port,
-    );
-    final client = SSHClient(
-      socket,
-      username: credentials.username,
-      onPasswordRequest: () => credentials.password ?? '',
-    );
+    try {
+      final socket = await SSHSocket.connect(
+        credentials.host,
+        credentials.port,
+      );
+      final client = SSHClient(
+        socket,
+        username: credentials.username,
+        onPasswordRequest: () => credentials.password ?? '',
+      );
 
-    final entry = _PoolEntry(poolKey: key, client: client);
-    _entries[key] = entry;
-    _ensureIdleTimer();
-    return client;
+      final entry = _PoolEntry(poolKey: key, client: client);
+      _entries[key] = entry;
+      _ensureIdleTimer();
+      return client;
+    } on SocketException catch (e) {
+      final message = _formatSocketError(e, credentials);
+      appLogger.e('SSH connection failed: $message');
+      throw SshConnectionException(message, host: credentials.host);
+    } on TimeoutException {
+      final msg =
+          'Connection to ${credentials.host}:${credentials.port} timed out. '
+          'Verify the host and port are correct and the server is reachable.';
+      appLogger.e('SSH connection timeout: $msg');
+      throw SshConnectionException(msg, host: credentials.host);
+    }
   }
 
+  /// Format a [SocketException] into a user-friendly error message.
+  String _formatSocketError(SocketException e, SshCredentials credentials) {
+    final osError = e.osError?.errorCode;
+    final message = e.message;
+
+    String hint;
+    if (osError == 1) {
+      // EPERM — often missing INTERNET permission on Android
+      hint = 'Operation not permitted. '
+          'Ensure the app has INTERNET permission (AndroidManifest.xml) '
+          'and the target server is reachable on port ${credentials.port}.';
+    } else if (osError == 111 || osError == 61) {
+      // ECONNREFUSED / ECONNRESET
+      hint = 'Connection refused. '
+          'Verify the SSH port (${credentials.port}) is correct '
+          'and the server firewall allows inbound connections.';
+    } else if (osError == 110 || osError == 60) {
+      // ETIMEDOUT
+      hint = 'Connection timed out. '
+          'Check network connectivity and server reachability.';
+    } else if (osError == 101) {
+      // ENETUNREACH
+      hint = 'Network unreachable. '
+          'Check the IP address and network connectivity.';
+    } else {
+      hint = 'Check network permissions, SSH port, server firewall, '
+          'and that the server is running.';
+    }
+
+    return 'SSH connection to ${credentials.host}:${credentials.port} failed '
+        '(errno=$osError): $message. $hint';
+  }
+
+  // ... rest of the class unchanged
   /// Execute a command repeatedly, streaming results.
   ///
   /// The connection is auto-created via [connect] and kept alive.
@@ -132,7 +183,8 @@ class SshSessionPool {
   void resume(String sshKey, String cmd) {
     final entry = _entries[sshKey];
     if (entry == null) return;
-    if (entry.state == PoolEntryState.paused || entry._subscription == null) {
+    if (entry.state == PoolEntryState.paused ||
+        entry._subscription == null) {
       final stream = _executeRepeatedly(entry.client, cmd);
       entry.attachStream(stream);
     }
