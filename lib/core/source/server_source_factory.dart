@@ -5,6 +5,7 @@
 ///   - No `apiKey`  → use [ServerSourceType.ssh] (SshServerSource)
 library;
 
+import 'package:flutter/foundation.dart';
 import 'package:lanxi/core/logger.dart';
 import 'package:lanxi/core/source/panel/dio_panel_api_client.dart';
 import 'package:lanxi/core/source/panel/fallback_server_source.dart';
@@ -116,6 +117,14 @@ abstract final class ServerSourceFactory {
       return buildPanel(profile);
     }
 
+    // SSH needs raw TCP, which the browser does not provide. Web only talks
+    // to 1Panel over its HTTP API (typically via the dev_server.py CORS proxy).
+    if (kIsWeb) {
+      throw const PlatformNotSupportedException(
+        'SSH 连接不支持网页版，请改用 1Panel API 配置。',
+      );
+    }
+
     appLogger.i('ServerSourceFactory: building SSH-only source');
     return buildSsh(profile);
   }
@@ -127,11 +136,20 @@ abstract final class ServerSourceFactory {
   static ServerSource buildPanel(ServerProfile profile) {
     final apiKey = profile.apiKey;
     if (apiKey == null || apiKey.isEmpty) {
+      if (kIsWeb) {
+        // No credential and no raw TCP on web — cannot fall back to SSH.
+        throw const PlatformNotSupportedException(
+          '网页版需要 1Panel API 密钥，且无法回退到 SSH。',
+        );
+      }
       // No credential — degrade to plain SSH.
       return buildSsh(profile);
     }
 
-    final baseUrl = 'https://${profile.host}:${profile.port}';
+    // On web, browsers block cross-origin calls to the panel host. Route
+    // through the dev_server.py CORS proxy: /proxy/<target-url>.
+    final rawBaseUrl = 'https://${profile.host}:${profile.port}';
+    final baseUrl = kIsWeb ? '/proxy/$rawBaseUrl' : rawBaseUrl;
     final apiClient = DioPanelApiClient(baseUrl: baseUrl, apiKey: apiKey);
     final panel = OnePanelServerSource(OnePanelAdapter(apiClient));
     final ssh = buildSsh(profile);
