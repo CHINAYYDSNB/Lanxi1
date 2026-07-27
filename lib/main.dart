@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:lanxi/core/logger.dart';
+import 'package:lanxi/core/store/secret_store.dart';
+import 'package:lanxi/core/store/server_store.dart';
 import 'package:lanxi/features/connection/app_state.dart';
-import 'package:lanxi/features/connection/connection_screen.dart';
+import 'package:lanxi/features/connection/connect_helper.dart';
+import 'package:lanxi/features/connection/server_list_page.dart';
 import 'package:lanxi/features/home_page.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -18,11 +23,13 @@ class LanxiApp extends StatefulWidget {
 
 class _LanxiAppState extends State<LanxiApp> {
   final AppState _appState = AppState();
+  ServerStore? _store;
 
   @override
   void initState() {
     super.initState();
     _appState.addListener(_onStateChanged);
+    _initStoreAndAutoConnect();
   }
 
   @override
@@ -32,12 +39,41 @@ class _LanxiAppState extends State<LanxiApp> {
     super.dispose();
   }
 
-  void _onStateChanged() {
-    setState(() {});
+  void _onStateChanged() => setState(() {});
+
+  Future<void> _initStoreAndAutoConnect() async {
+    final prefs = await SharedPreferences.getInstance();
+    final store = ServerStore(prefs: prefs, secret: SecureStorageSecretStore());
+    if (!mounted) return;
+    setState(() => _store = store);
+
+    // Try auto-connect to the first available candidate.
+    try {
+      final candidates = await store.autoConnectCandidates();
+      for (final profile in candidates) {
+        try {
+          final service = await connectProfile(profile, store);
+          if (!mounted) return;
+          _appState.connect(service);
+          appLogger.i('Auto-connected to ${profile.name}');
+          return;
+        } catch (e) {
+          appLogger.w('Auto-connect failed for ${profile.name}', e);
+        }
+      }
+    } catch (e) {
+      appLogger.e('Auto-connect sequence error', e);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_store == null) {
+      return const MaterialApp(
+        home: Scaffold(body: Center(child: CircularProgressIndicator())),
+      );
+    }
+
     return MaterialApp(
       title: 'Lanxi',
       debugShowCheckedModeBanner: false,
@@ -58,7 +94,7 @@ class _LanxiAppState extends State<LanxiApp> {
       ),
       home: _appState.isConnected
           ? HomePage(appState: _appState)
-          : ConnectionScreen(appState: _appState),
+          : ServerListPage(appState: _appState, store: _store!),
     );
   }
 }
