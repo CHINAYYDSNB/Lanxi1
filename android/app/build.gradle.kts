@@ -32,11 +32,10 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
-}
 
-kotlin {
-    compilerOptions {
-        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
+    kotlinOptions {
+        // Compatible with AGP 8.3.0 + Kotlin 1.9.22 (Flutter 3.24.x template)
+        jvmTarget = "17"
     }
 }
 
