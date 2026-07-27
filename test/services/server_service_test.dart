@@ -1,6 +1,7 @@
 // ignore_for_file: require_trailing_commas
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lanxi/core/source/interactive_session.dart';
 import 'package:lanxi/core/source/panel_detector.dart';
 import 'package:lanxi/core/source/server_source.dart';
 import 'package:lanxi/models/compress_result.dart';
@@ -8,6 +9,8 @@ import 'package:lanxi/models/domain/file_item.dart';
 import 'package:lanxi/models/domain/system_stats.dart';
 import 'package:lanxi/services/server_service.dart';
 import 'package:mocktail/mocktail.dart';
+
+import '../helpers/fake_interactive_session.dart';
 
 class _MockSource extends Mock implements ServerSource {}
 
@@ -123,6 +126,18 @@ void main() {
 
       expect(await service.detectPanel(), PanelStatus.none);
       verify(() => mockSource.detectPanel()).called(1);
+    });
+  });
+
+  group('openShell', () {
+    test('delegates to source', () async {
+      when(() => mockSource.openShell())
+          .thenAnswer((_) async => FakeInteractiveSession());
+
+      final session = await service.openShell();
+
+      expect(session, isA<InteractiveSession>());
+      verify(() => mockSource.openShell()).called(1);
     });
   });
 }

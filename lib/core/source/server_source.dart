@@ -1,3 +1,4 @@
+import 'package:lanxi/core/source/interactive_session.dart';
 import 'package:lanxi/core/source/panel_detector.dart';
 import 'package:lanxi/models/compress_result.dart';
 import 'package:lanxi/models/domain/file_item.dart';
@@ -35,6 +36,10 @@ abstract class ServerSource {
   /// Stream a command's stdout as it arrives (used for live terminal output,
   /// e.g. the 1Panel installer). SSH-only; panel throws [PanelFallbackException].
   Stream<String> streamCommand(String cmd);
+
+  /// Open an interactive PTY shell. SSH-only; panel sources throw
+  /// [PanelFallbackException] so callers can fall back to SSH.
+  Future<InteractiveSession> openShell();
 
   /// Probe the host for a known control panel (1Panel / 宝塔).
   Future<PanelStatus> detectPanel();

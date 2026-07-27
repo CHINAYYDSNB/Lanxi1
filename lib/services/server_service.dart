@@ -4,6 +4,7 @@
 /// Every method delegates directly to the injected [ServerSource].
 library;
 
+import 'package:lanxi/core/source/interactive_session.dart';
 import 'package:lanxi/core/source/panel_detector.dart';
 import 'package:lanxi/core/source/server_source.dart';
 import 'package:lanxi/models/compress_result.dart';
@@ -37,6 +38,9 @@ class ServerService {
 
   /// Stream a command's stdout (e.g. for the live 1Panel install terminal).
   Stream<String> streamCommand(String cmd) => _source.streamCommand(cmd);
+
+  /// Open an interactive PTY shell (e.g. for the terminal page).
+  Future<InteractiveSession> openShell() => _source.openShell();
 
   /// Probe the host for a control panel (1Panel / 宝塔).
   Future<PanelStatus> detectPanel() => _source.detectPanel();

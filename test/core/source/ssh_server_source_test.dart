@@ -5,6 +5,7 @@ import 'dart:typed_data';
 
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lanxi/core/source/interactive_session.dart';
 import 'package:lanxi/core/ssh/ssh_connection.dart';
 import 'package:lanxi/core/ssh/ssh_session_pool.dart';
 import 'package:lanxi/core/source/ssh_server_source.dart';
@@ -21,6 +22,15 @@ class _MockSSHSession extends Mock implements SSHSession {}
 Stream<Uint8List> _streamOf(String text) =>
     Stream.value(Uint8List.fromList(utf8.encode(text)));
 
+/// Builds a mock session whose stdout yields [text].
+Future<SSHSession> _sessionReturning(String text) async {
+  final session = _MockSSHSession();
+  when(() => session.stdout).thenAnswer((_) => _streamOf(text));
+  when(() => session.exitCode).thenReturn(0);
+  when(() => session.done).thenAnswer((_) async {});
+  return session;
+}
+
 void main() {
   late _MockPool mockPool;
   late _MockSSHClient mockClient;
@@ -31,6 +41,7 @@ void main() {
       host: 'default',
       username: 'default',
     ));
+    registerFallbackValue(const SSHPtyConfig());
   });
 
   setUp(() {
@@ -44,66 +55,63 @@ void main() {
         username: 'root',
       ),
     );
+    when(() => mockPool.connect(any()))
+        .thenAnswer((_) async => mockClient);
   });
 
   group('getSystemInfo', () {
-    test('connects, executes command, and parses output', () async {
-      final session = _MockSSHSession();
-      when(() => session.stdout).thenAnswer(
-        (_) => _streamOf([
-          '%Cpu(s):  45.2 us,  10.0 sy,  0.0 ni, 44.8 id,  0.0 wa',
-          'Mem:   1986  512  1023    0  450  923',
-          'Swap:  2048    0 2048',
-          'Filesystem      Size  Used Avail Use% Mounted on',
-          '/dev/sda1        50G   30G   20G  60% /',
-        ].join('\n')),
-      );
-      when(() => session.exitCode).thenReturn(0);
-when(() => session.done).thenAnswer((_) async {});
-      when(() => mockClient.execute(any()))
-          .thenAnswer((_) async => session);
-      when(() => mockPool.connect(any()))
-          .thenAnswer((_) async => mockClient);
+    test('parses cpu/mem/load and df -Pk disks', () async {
+      when(() => mockClient.execute(any())).thenAnswer((inv) {
+        final cmd = inv.positionalArguments[0] as String;
+        final isDisk = cmd.contains('df -Pk');
+        final text = isDisk
+            ? [
+                'Filesystem     1024-blocks      Used Available Capacity Mounted on',
+                '/dev/sda1      51200000  25600000  25600000      50% /',
+                'tmpfs            2048000       100   2047900       1% /dev/shm',
+                'overlay         51200000  25600000  25600000      50% /',
+              ].join('\n')
+            : [
+                '%Cpu(s):  45.2 us,  10.0 sy,  0.0 ni, 44.8 id',
+                'Mem:   1986  512  1023    0  450  923',
+                'load average: 1.23',
+              ].join('\n');
+        return _sessionReturning(text);
+      });
 
       final result = await source.getSystemInfo();
 
       expect(result.cpuPercent, closeTo(45.2, 0.01));
       expect(result.memTotalMb, 1986);
       expect(result.memUsedMb, 512);
-      expect(result.diskTotalMb, 50 * 1024);
-      expect(result.diskUsedMb, 30 * 1024);
+      expect(result.loadAvg, closeTo(1.23, 0.001));
+      // tmpfs excluded; /dev/sda1 and overlay kept
+      expect(result.disks.length, 2);
+      expect(result.disks[0].totalMb, 50000);
+      expect(result.disks[0].usedMb, 25000);
+      expect(result.diskTotalMb, 100000);
+      expect(result.diskUsedMb, 50000);
       expect(result.source, SystemStatsSource.ssh);
       verify(() => mockPool.connect(any())).called(1);
-      verify(() => mockClient.execute(any())).called(1);
-    });
-
-    test('reuses client on second call (cached)', () async {
-      final session = _MockSSHSession();
-      when(() => session.stdout).thenAnswer((_) => _streamOf(''));
-      when(() => session.exitCode).thenReturn(0);
-when(() => session.done).thenAnswer((_) async {});
-      when(() => mockClient.execute(any()))
-          .thenAnswer((_) async => session);
-      when(() => mockPool.connect(any()))
-          .thenAnswer((_) async => mockClient);
-
-      await source.getSystemInfo();
-      await source.getSystemInfo();
-
-      // connect should only be called once (client is cached)
-      verify(() => mockPool.connect(any())).called(1);
+      // info command + disk command
       verify(() => mockClient.execute(any())).called(2);
     });
 
-    test('returns defaults for empty output', () async {
-      final session = _MockSSHSession();
-      when(() => session.stdout).thenAnswer((_) => _streamOf(''));
-      when(() => session.exitCode).thenReturn(0);
-when(() => session.done).thenAnswer((_) async {});
+    test('reuses client on second call (cached)', () async {
       when(() => mockClient.execute(any()))
-          .thenAnswer((_) async => session);
-      when(() => mockPool.connect(any()))
-          .thenAnswer((_) async => mockClient);
+          .thenAnswer((_) => _sessionReturning(''));
+
+      await source.getSystemInfo();
+      await source.getSystemInfo();
+
+      verify(() => mockPool.connect(any())).called(1);
+      // two commands (info + disk) per getSystemInfo, called twice
+      verify(() => mockClient.execute(any())).called(4);
+    });
+
+    test('returns defaults for empty output', () async {
+      when(() => mockClient.execute(any()))
+          .thenAnswer((_) => _sessionReturning(''));
 
       final result = await source.getSystemInfo();
 
@@ -111,6 +119,19 @@ when(() => session.done).thenAnswer((_) async {});
       expect(result.memTotalMb, 0);
       expect(result.memUsedMb, 0);
       expect(result.diskTotalMb, 0);
+      expect(result.disks, isEmpty);
+    });
+  });
+
+  group('openShell', () {
+    test('opens a PTY shell through the client', () async {
+      when(() => mockClient.shell(pty: any(named: 'pty')))
+          .thenAnswer((_) async => _MockSSHSession());
+
+      final session = await source.openShell();
+
+      expect(session, isA<InteractiveSession>());
+      verify(() => mockClient.shell(pty: any(named: 'pty'))).called(1);
     });
   });
 }

@@ -6,6 +6,7 @@ library;
 
 import 'package:lanxi/core/logger.dart';
 import 'package:lanxi/core/source/exceptions.dart';
+import 'package:lanxi/core/source/interactive_session.dart';
 import 'package:lanxi/core/source/panel_detector.dart';
 import 'package:lanxi/core/source/server_source.dart';
 import 'package:lanxi/models/compress_result.dart';
@@ -90,6 +91,16 @@ class FallbackServerSource implements ServerSource {
     } on PanelFallbackException catch (e) {
       appLogger.w('Fallback: API detectPanel failed — using SSH ($e)');
       return ssh.detectPanel();
+    }
+  }
+
+  @override
+  Future<InteractiveSession> openShell() async {
+    try {
+      return await panel.openShell();
+    } on PanelFallbackException catch (e) {
+      appLogger.w('Fallback: API openShell failed — using SSH ($e)');
+      return await ssh.openShell();
     }
   }
 }

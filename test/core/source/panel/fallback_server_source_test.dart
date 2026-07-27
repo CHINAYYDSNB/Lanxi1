@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lanxi/core/source/exceptions.dart';
+import 'package:lanxi/core/source/interactive_session.dart';
 import 'package:lanxi/core/source/panel/fallback_server_source.dart';
 import 'package:lanxi/core/source/panel/one_panel_server_source.dart';
 import 'package:lanxi/core/source/server_source.dart';
@@ -7,6 +8,8 @@ import 'package:lanxi/models/compress_result.dart';
 import 'package:lanxi/models/domain/file_item.dart';
 import 'package:lanxi/models/domain/system_stats.dart';
 import 'package:mocktail/mocktail.dart';
+
+import '../../../helpers/fake_interactive_session.dart';
 
 class _MockPanel extends Mock implements OnePanelServerSource {}
 
@@ -150,6 +153,20 @@ void main() {
 
       verify(() => mockPanel.changeRootPassword('newPass123')).called(1);
       verify(() => mockSsh.changeRootPassword('newPass123')).called(1);
+    });
+  });
+
+  group('openShell', () {
+    test('falls back to SSH when panel throws', () async {
+      when(() => mockPanel.openShell())
+          .thenThrow(const PanelFallbackException('no shell'));
+      when(() => mockSsh.openShell())
+          .thenAnswer((_) async => FakeInteractiveSession());
+
+      final session = await source.openShell();
+
+      expect(session, isA<InteractiveSession>());
+      verify(() => mockSsh.openShell()).called(1);
     });
   });
 }

@@ -8,6 +8,8 @@ import 'package:lanxi/features/tools/tools_page.dart';
 import 'package:lanxi/services/server_service.dart';
 import 'package:mocktail/mocktail.dart';
 
+import '../../helpers/fake_interactive_session.dart';
+
 class _MockService extends Mock implements ServerService {}
 
 void main() {
@@ -43,6 +45,8 @@ void main() {
     testWidgets('tapping install opens the terminal page', (tester) async {
       when(() => service.detectPanel())
           .thenAnswer((_) async => PanelStatus.none);
+      when(() => service.openShell())
+          .thenAnswer((_) async => FakeInteractiveSession());
       when(() => service.streamCommand(any()))
           .thenAnswer((_) => Stream.value(''));
 

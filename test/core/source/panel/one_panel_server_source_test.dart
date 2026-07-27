@@ -76,4 +76,11 @@ void main() {
       throwsA(isA<PanelFallbackException>()),
     );
   });
+
+  test('openShell throws PanelFallbackException (no shell on panel)', () {
+    expect(
+      () => source.openShell(),
+      throwsA(isA<PanelFallbackException>()),
+    );
+  });
 }

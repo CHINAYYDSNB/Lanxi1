@@ -6,6 +6,7 @@
 library;
 
 import 'package:lanxi/core/source/exceptions.dart';
+import 'package:lanxi/core/source/interactive_session.dart';
 import 'package:lanxi/core/source/panel_detector.dart';
 import 'package:lanxi/core/source/server_source.dart';
 import 'package:lanxi/models/compress_result.dart';
@@ -53,4 +54,10 @@ class OnePanelServerSource implements ServerSource {
 
   @override
   Future<PanelStatus> detectPanel() async => PanelStatus.onePanel;
+
+  @override
+  Future<InteractiveSession> openShell() {
+    // The 1Panel API has no shell — signal the fallback layer to use SSH.
+    throw const PanelFallbackException('openShell not available through 1Panel API');
+  }
 }
