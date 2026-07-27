@@ -1,11 +1,16 @@
-/// Adapter that maps 1Panel V2 API responses into Lanxi models.
+/// Adapter that maps 1Panel V2 API responses into Lanxi domain models.
 ///
-/// Compatible with both nested (`currentInfo`) and flat JSON structures.
+/// Uses [ApiResponse<T>] wrappers and typed DTOs with [toDomain()] conversion.
+/// Compatible with both nested (currentInfo) and flat JSON structures.
 library;
 
+import 'package:lanxi/core/source/exceptions.dart';
 import 'package:lanxi/models/compress_result.dart';
-import 'package:lanxi/models/file_item.dart';
-import 'package:lanxi/models/system_snapshot.dart';
+import 'package:lanxi/models/domain/file_item.dart';
+import 'package:lanxi/models/domain/system_stats.dart';
+import 'package:lanxi/models/dto/api_response.dart';
+import 'package:lanxi/models/dto/file_item_dto.dart';
+import 'package:lanxi/models/dto/host_status_dto.dart';
 
 import 'dio_panel_api_client.dart';
 
@@ -17,98 +22,89 @@ class OnePanelAdapter {
   /// Fetch system info from 1Panel dashboard endpoint.
   ///
   /// POST /api/v2/dashboard/base/0/0
-  Future<SystemSnapshot> getHostInfo() async {
-    final data = await _client.post('/api/v2/dashboard/base/0/0');
-    final body = data['data'] as Map<String, dynamic>? ?? {};
-
-    // Try nested (currentInfo) first, then flat.
-    final info = body['currentInfo'] as Map<String, dynamic>? ?? body;
-
-    final cpuPercent = (info['cpuUsedPercent'] as num?)?.toDouble() ?? 0.0;
-
-    // Memory in bytes → MB
-    final memTotal = _bytesToMb(info['memoryTotal']);
-    final memUsed = _bytesToMb(info['memoryUsed']);
-
-    // Disk: first partition or aggregate
-    final diskData = info['diskData'] as List<dynamic>?;
-    int diskTotal = 0, diskUsed = 0;
-    if (diskData != null && diskData.isNotEmpty) {
-      final first = diskData.first as Map<String, dynamic>;
-      diskTotal = _bytesToMb(first['total']);
-      diskUsed = _bytesToMb(first['used']);
-    } else {
-      diskTotal = _bytesToMb(info['diskTotal']);
-      diskUsed = _bytesToMb(info['diskUsed']);
+  /// Uses for initial load only — real-time monitoring uses SSH streams.
+  Future<SystemStats> getHostInfo() async {
+    try {
+      final response = await _client.post('/api/v2/dashboard/base/0/0');
+      final apiResp = ApiResponse<HostStatusDto>.fromJson(
+        response,
+        (json) => HostStatusDto.fromJson(json),
+      );
+      if (!apiResp.isSuccess || apiResp.data == null) {
+        throw PanelFallbackException(
+          'Failed to fetch host status',
+          statusCode: apiResp.code,
+        );
+      }
+      return apiResp.data!.toDomain();
+    } on PanelFallbackException {
+      rethrow;
+    } catch (e) {
+      throw PanelFallbackException('API unreachable', originalError: e);
     }
-
-    final loadAvg = (info['loadAvg'] as num?)?.toDouble() ?? 0.0;
-
-    return SystemSnapshot(
-      cpuPercent: cpuPercent,
-      memoryTotal: memTotal,
-      memoryUsed: memUsed,
-      diskTotal: diskTotal,
-      diskUsed: diskUsed,
-      loadAvg: loadAvg,
-      timestamp: DateTime.now(),
-    );
   }
 
   /// List directory contents.
   ///
   /// GET /api/v2/files?path=...
   Future<List<FileItem>> listDir(String path) async {
-    final data = await _client.get(
-      '/api/v2/files',
-      queryParameters: {'path': path},
-    );
-    final items = data['data'] as List<dynamic>? ?? [];
-    return items.map((e) {
-      final entry = e as Map<String, dynamic>;
-      return FileItem(
-        name: entry['name'] as String? ?? '',
-        path: '$path/${entry['name'] ?? ''}',
-        size: (entry['size'] as num?)?.toInt() ?? 0,
-        isDir: entry['isDir'] as bool? ?? false,
-        permissions: entry['permissions'] as String? ?? '',
-        modifiedTime: entry['modified'] != null
-            ? DateTime.tryParse(entry['modified'] as String) ?? DateTime.now()
-            : DateTime.now(),
+    try {
+      final response = await _client.get(
+        '/api/v2/files',
+        queryParameters: {'path': path},
       );
-    }).toList();
+      final apiResp = ApiResponse<List<FileItemDto>>.fromJsonList(
+        response,
+        (list) => list
+            .map((e) => FileItemDto.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+      if (!apiResp.isSuccess) {
+        throw PanelFallbackException(
+          'Failed to list directory',
+          statusCode: apiResp.code,
+        );
+      }
+      final items = apiResp.data ?? [];
+      return items.map((dto) => dto.toDomain(path)).toList();
+    } on PanelFallbackException {
+      rethrow;
+    } catch (e) {
+      throw PanelFallbackException('API unreachable', originalError: e);
+    }
   }
 
   /// Compress files on the server.
   ///
   /// POST /api/v2/files/compress
   Future<CompressResult> compress(List<String> src, String dest) async {
-    final start = DateTime.now();
-    final data = await _client.post(
-      '/api/v2/files/compress',
-      data: {
-        'src': src,
-        'dest': dest,
-      },
-    );
-    final duration = DateTime.now().difference(start);
-    final body = data['data'] as Map<String, dynamic>? ?? {};
-    return CompressResult(
-      destPath: dest,
-      size: (body['size'] as num?)?.toInt() ?? 0,
-      durationMs: duration.inMilliseconds,
-      success: true,
-    );
-  }
-
-  /// Convert raw byte value to MB. Accepts [num] or [String].
-  int _bytesToMb(dynamic value) {
-    if (value == null) return 0;
-    if (value is num) return (value / (1024 * 1024)).round();
-    if (value is String) {
-      final parsed = int.tryParse(value);
-      if (parsed != null) return (parsed / (1024 * 1024)).round();
+    try {
+      final start = DateTime.now();
+      final response = await _client.post(
+        '/api/v2/files/compress',
+        data: {'src': src, 'dest': dest},
+      );
+      final duration = DateTime.now().difference(start);
+      final apiResp = ApiResponse.fromJson(
+        response,
+        (_) => null, // compress response has no structured data body
+      );
+      if (!apiResp.isSuccess) {
+        throw PanelFallbackException(
+          'Compression failed',
+          statusCode: apiResp.code,
+        );
+      }
+      return CompressResult(
+        destPath: dest,
+        size: 0,
+        durationMs: duration.inMilliseconds,
+        success: true,
+      );
+    } on PanelFallbackException {
+      rethrow;
+    } catch (e) {
+      throw PanelFallbackException('API unreachable', originalError: e);
     }
-    return 0;
   }
 }

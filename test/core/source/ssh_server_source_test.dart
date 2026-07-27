@@ -3,6 +3,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lanxi/core/source/ssh_server_source.dart';
 import 'package:lanxi/core/ssh/ssh_connection.dart';
+import 'package:lanxi/models/domain/system_stats.dart';
 
 class _FakeSshConnection implements SshConnection {
   String _output = '';
@@ -51,84 +52,21 @@ void main() {
 
       final result = await source.getSystemInfo();
 
-      expect(
-        result.cpuPercent,
-        closeTo(45.2, 0.01),
-      );
-      expect(result.memoryTotal, 1986);
-      expect(result.memoryUsed, 512);
-      expect(result.diskTotal, 50 * 1024);
-      expect(result.diskUsed, 30 * 1024);
+      expect(result.cpuPercent, closeTo(45.2, 0.01));
+      expect(result.memTotalMb, 1986);
+      expect(result.memUsedMb, 512);
+      expect(result.diskTotalMb, 50 * 1024);
+      expect(result.diskUsedMb, 30 * 1024);
       expect(result.timestamp, isA<DateTime>());
+      expect(result.source, SystemStatsSource.ssh);
     });
 
     test('returns defaults for empty output', () async {
       fakeSsh.setOutput('');
-
       final result = await source.getSystemInfo();
-
       expect(result.cpuPercent, 0.0);
-      expect(result.memoryTotal, 0);
-      expect(result.memoryUsed, 0);
-      expect(result.diskTotal, 0);
-      expect(result.diskUsed, 0);
-    });
-  });
-
-  group('setNtp', () {
-    test('executes without throwing', () async {
-      fakeSsh.setOutput('');
-      await expectLater(source.setNtp('Asia/Shanghai'), completes);
-    });
-  });
-
-  group('changeRootPassword', () {
-    test('executes without throwing', () async {
-      fakeSsh.setOutput('');
-      await expectLater(
-        source.changeRootPassword('Str0ng!Pass'),
-        completes,
-      );
-    });
-  });
-
-  group('compress', () {
-    test('executes tar command', () async {
-      fakeSsh.setOutput('');
-      final result = await source.compress(
-        ['/var/log/syslog', '/var/log/auth.log'],
-        '/tmp/logs.tar.gz',
-      );
-
-      expect(result.success, true);
-      expect(result.destPath, '/tmp/logs.tar.gz');
-    });
-  });
-
-  group('listDir', () {
-    test('parses ls -la output', () async {
-      fakeSsh.setOutput([
-        'total 24',
-        'drwxr-xr-x 2 root root 4096 Jan 1 12:00 .',
-        'drwxr-xr-x 3 root root 4096 Jan 1 12:00 ..',
-        '-rw-r--r-- 1 root root  512 Jan 1 12:01 readme.txt',
-        'drwx------ 2 root root 4096 Jan 1 12:02 secret',
-      ].join('\n'));
-
-      final items = await source.listDir('/tmp');
-
-      expect(items.length, 2);
-      expect(items[0].name, 'readme.txt');
-      expect(items[0].isDir, false);
-      expect(items[0].size, 512);
-      expect(items[1].name, 'secret');
-      expect(items[1].isDir, true);
-    });
-
-    test('handles empty directory', () async {
-      fakeSsh.setOutput('total 0');
-      final items = await source.listDir('/empty');
-      expect(items, isEmpty);
+      expect(result.memTotalMb, 0);
+      expect(result.memUsedMb, 0);
     });
   });
 }

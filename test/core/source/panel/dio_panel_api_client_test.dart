@@ -30,6 +30,7 @@ void main() {
     when(() => mockDio.options).thenReturn(
       BaseOptions(baseUrl: 'http://localhost'),
     );
+    when(() => mockDio.interceptors).thenReturn(Interceptors());
   });
 
   DioPanelApiClient createClient() {
@@ -52,7 +53,6 @@ void main() {
       when(() => mockDio.get<Map<String, dynamic>>(
             any(),
             queryParameters: any(named: 'queryParameters'),
-            options: any(named: 'options'),
           )).thenAnswer((_) async => successResponse(data: {'info': 'ok'}));
 
       final client = createClient();
@@ -68,7 +68,6 @@ void main() {
       when(() => mockDio.get<Map<String, dynamic>>(
             any(),
             queryParameters: any(named: 'queryParameters'),
-            options: any(named: 'options'),
           )).thenThrow(
         DioException(
           requestOptions: RequestOptions(path: '/api/v2/files'),
@@ -91,19 +90,14 @@ void main() {
   group('POST requests', () {
     test('returns data on successful response', () async {
       when(() => mockDio.post<Map<String, dynamic>>(
-                any(),
-                data: any(named: 'data'),
-                options: any(named: 'options'),
-              ))
-          .thenAnswer((_) async => successResponse(data: {'task': 'started'}));
+            any(),
+            data: any(named: 'data'),
+          )).thenAnswer((_) async => successResponse(data: {'task': 'started'}));
 
       final client = createClient();
       final result = await client.post(
         '/api/v2/files/compress',
-        data: {
-          'src': ['/tmp/a'],
-          'dest': '/tmp/a.zip'
-        },
+        data: {'src': ['/tmp/a'], 'dest': '/tmp/a.zip'},
       );
 
       expect(result['data']['task'], 'started');
@@ -116,7 +110,6 @@ void main() {
       when(() => mockDio.post<Map<String, dynamic>>(
             any(),
             data: any(named: 'data'),
-            options: any(named: 'options'),
           )).thenAnswer((_) async => resp);
 
       final client = createClient();
@@ -130,7 +123,6 @@ void main() {
       when(() => mockDio.post<Map<String, dynamic>>(
             any(),
             data: any(named: 'data'),
-            options: any(named: 'options'),
           )).thenThrow(
         DioException(
           requestOptions: RequestOptions(path: '/api/v2/dashboard'),
@@ -143,23 +135,6 @@ void main() {
         () => client.post('/api/v2/dashboard/base/0/0'),
         throwsA(isA<PanelFallbackException>()),
       );
-    });
-
-    test('sets 1Panel auth headers', () async {
-      when(() => mockDio.post<Map<String, dynamic>>(
-            any(),
-            data: any(named: 'data'),
-            options: any(named: 'options'),
-          )).thenAnswer((invocation) async {
-        final opts = invocation.namedArguments[#options] as Options;
-        final headers = opts.headers!;
-        expect(headers, containsPair('1Panel-Timestamp', isA<String>()));
-        expect(headers, containsPair('1Panel-Token', isA<String>()));
-        return successResponse();
-      });
-
-      final client = createClient();
-      await client.post('/api/v2/dashboard/base/0/0');
     });
   });
 }

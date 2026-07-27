@@ -1,18 +1,26 @@
-/// Exceptions used throughout the server-source layer.
-library;
-
-/// Thrown when a 1Panel API call fails and the caller should fall back to SSH.
+/// Thrown when 1Panel API fails, indicating fallback to SSH is needed.
 class PanelFallbackException implements Exception {
   final String message;
-  final Object? original;
-  final String endpoint;
+  final int? statusCode;
+  final Object? originalError;
 
   const PanelFallbackException(
     this.message, {
-    this.original,
-    this.endpoint = '',
+    this.statusCode,
+    this.originalError,
   });
 
   @override
-  String toString() => 'PanelFallbackException: $message (endpoint: $endpoint)';
+  String toString() => 'PanelFallbackException($statusCode): $message';
+}
+
+/// Thrown when SSH connection fails and no fallback is available.
+class SshConnectionException implements Exception {
+  final String message;
+  final String? host;
+
+  const SshConnectionException(this.message, {this.host});
+
+  @override
+  String toString() => 'SshConnectionException($host): $message';
 }

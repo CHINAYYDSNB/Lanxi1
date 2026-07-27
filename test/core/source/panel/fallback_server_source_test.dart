@@ -4,22 +4,22 @@ import 'package:lanxi/core/source/panel/fallback_server_source.dart';
 import 'package:lanxi/core/source/panel/one_panel_server_source.dart';
 import 'package:lanxi/core/source/server_source.dart';
 import 'package:lanxi/models/compress_result.dart';
-import 'package:lanxi/models/file_item.dart';
-import 'package:lanxi/models/system_snapshot.dart';
+import 'package:lanxi/models/domain/file_item.dart';
+import 'package:lanxi/models/domain/system_stats.dart';
 import 'package:mocktail/mocktail.dart';
 
 class _MockPanel extends Mock implements OnePanelServerSource {}
 
 class _MockSsh extends Mock implements ServerSource {}
 
-SystemSnapshot _snapshot() => SystemSnapshot(
+SystemStats _snapshot() => SystemStats(
       cpuPercent: 10,
-      memoryTotal: 1024,
-      memoryUsed: 512,
-      diskTotal: 50000,
-      diskUsed: 25000,
+      memTotalMb: 1024,
+      memUsedMb: 512,
+      disks: const [],
+      diskTotalMb: 50000,
+      diskUsedMb: 25000,
       loadAvg: 0.5,
-      timestamp: DateTime.now(),
     );
 
 CompressResult _compressResult() => const CompressResult(

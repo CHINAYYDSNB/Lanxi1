@@ -3,21 +3,21 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lanxi/core/source/server_source.dart';
 import 'package:lanxi/models/compress_result.dart';
-import 'package:lanxi/models/file_item.dart';
-import 'package:lanxi/models/system_snapshot.dart';
+import 'package:lanxi/models/domain/file_item.dart';
+import 'package:lanxi/models/domain/system_stats.dart';
 import 'package:lanxi/services/server_service.dart';
 import 'package:mocktail/mocktail.dart';
 
 class _MockSource extends Mock implements ServerSource {}
 
-SystemSnapshot _snapshot() => SystemSnapshot(
+SystemStats _snapshot() => SystemStats(
       cpuPercent: 75.0,
-      memoryTotal: 8192,
-      memoryUsed: 4096,
-      diskTotal: 102400,
-      diskUsed: 51200,
+      memTotalMb: 8192,
+      memUsedMb: 4096,
+      disks: [],
+      diskTotalMb: 102400,
+      diskUsedMb: 51200,
       loadAvg: 2.5,
-      timestamp: DateTime.now(),
     );
 
 void main() {
@@ -78,8 +78,7 @@ void main() {
 
       expect(result.success, true);
       expect(result.destPath, '/tmp/out.tar.gz');
-      verify(() => mockSource.compress(['/tmp/a'], '/tmp/out.tar.gz'))
-          .called(1);
+      verify(() => mockSource.compress(['/tmp/a'], '/tmp/out.tar.gz')).called(1);
     });
   });
 

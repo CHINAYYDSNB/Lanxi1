@@ -4,7 +4,7 @@ class FileItem {
   final String path;
   final int size; // bytes
   final bool isDir;
-  final String permissions; // e.g. "rwxr-xr-x"
+  final String permissions;
   final DateTime modifiedTime;
 
   const FileItem({
@@ -56,5 +56,5 @@ abstract final class MagicNumbers {
   static const List<int> pdf = [0x25, 0x50, 0x44, 0x46];
   static const List<int> zip = [0x50, 0x4B, 0x03, 0x04];
   static const List<int> gzip = [0x1F, 0x8B];
-  static const List<int> tar = [0x75, 0x73, 0x74, 0x61, 0x72]; // "ustar"
+  static const List<int> tar = [0x75, 0x73, 0x74, 0x61, 0x72];
 }

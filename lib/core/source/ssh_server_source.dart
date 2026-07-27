@@ -8,8 +8,8 @@ import 'package:lanxi/core/logger.dart';
 import 'package:lanxi/core/ssh/ssh_connection.dart';
 import 'package:lanxi/core/source/server_source.dart';
 import 'package:lanxi/models/compress_result.dart';
-import 'package:lanxi/models/file_item.dart';
-import 'package:lanxi/models/system_snapshot.dart';
+import 'package:lanxi/models/domain/file_item.dart';
+import 'package:lanxi/models/domain/system_stats.dart';
 
 class SshServerSource implements ServerSource {
   final SshConnection _ssh;
@@ -19,7 +19,7 @@ class SshServerSource implements ServerSource {
   // ── Monitoring ──
 
   @override
-  Future<SystemSnapshot> getSystemInfo() async {
+  Future<SystemStats> getSystemInfo() async {
     const cmd = 'top -bn1 | head -5; free -m; df -h';
     final output = await _ssh.exec(cmd);
     return _parseSystemInfo(output);
@@ -64,7 +64,7 @@ class SshServerSource implements ServerSource {
 
   // ── Parsing helpers ──
 
-  SystemSnapshot _parseSystemInfo(String raw) {
+  SystemStats _parseSystemInfo(String raw) {
     double cpu = 0.0;
     int memTotal = 0, memUsed = 0;
     int diskTotal = 0, diskUsed = 0;
@@ -91,14 +91,15 @@ class SshServerSource implements ServerSource {
       if (loadMatch != null) loadAvg = double.parse(loadMatch[1]!);
     }
 
-    return SystemSnapshot(
+    return SystemStats(
       cpuPercent: cpu,
-      memoryTotal: memTotal,
-      memoryUsed: memUsed,
-      diskTotal: diskTotal,
-      diskUsed: diskUsed,
+      memTotalMb: memTotal,
+      memUsedMb: memUsed,
+      disks: const [],
+      diskTotalMb: diskTotal,
+      diskUsedMb: diskUsed,
       loadAvg: loadAvg,
-      timestamp: DateTime.now(),
+      source: SystemStatsSource.ssh,
     );
   }
 

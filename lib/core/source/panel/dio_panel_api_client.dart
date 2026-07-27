@@ -1,6 +1,6 @@
-/// Dio-based HTTP client with 1Panel V2 authentication.
+/// Dio-based HTTP client with 1Panel V2 authentication via interceptor.
 ///
-/// Auth scheme:
+/// Auth scheme (applied by [_AuthInterceptor]):
 ///   1. Generate `timestamp` (Unix seconds)
 ///   2. Compute `md5('1panel' + apiKey + timestamp)`
 ///   3. Send headers `1Panel-Token` and `1Panel-Timestamp`
@@ -26,18 +26,8 @@ class DioPanelApiClient {
         _dio = (dio ?? Dio())
           ..options.baseUrl = baseUrl
           ..options.connectTimeout = timeout
-          ..options.receiveTimeout = timeout;
-
-  /// Add 1Panel V2 auth headers to every request.
-  Map<String, String> _authHeaders() {
-    final timestamp =
-        (DateTime.now().millisecondsSinceEpoch / 1000).floor().toString();
-    final token =
-        md5.convert(utf8.encode('1panel$_apiKey$timestamp')).toString();
-    return {
-      '1Panel-Token': token,
-      '1Panel-Timestamp': timestamp,
-    };
+          ..options.receiveTimeout = timeout {
+    _dio.interceptors.add(_AuthInterceptor(apiKey: _apiKey));
   }
 
   /// Perform a GET request.
@@ -49,15 +39,13 @@ class DioPanelApiClient {
       final response = await _dio.get<Map<String, dynamic>>(
         path,
         queryParameters: queryParameters,
-        options: Options(headers: _authHeaders()),
       );
       _validateResponse(response, path);
       return response.data!;
     } on DioException catch (e) {
       throw PanelFallbackException(
         'Dio error on GET $path',
-        original: e,
-        endpoint: path,
+        originalError: e,
       );
     }
   }
@@ -71,15 +59,13 @@ class DioPanelApiClient {
       final response = await _dio.post<Map<String, dynamic>>(
         path,
         data: data,
-        options: Options(headers: _authHeaders()),
       );
       _validateResponse(response, path);
       return response.data!;
     } on DioException catch (e) {
       throw PanelFallbackException(
         'Dio error on POST $path',
-        original: e,
-        endpoint: path,
+        originalError: e,
       );
     }
   }
@@ -91,17 +77,30 @@ class DioPanelApiClient {
         resp.statusCode! >= 300) {
       throw PanelFallbackException(
         'HTTP ${resp.statusCode}',
-        endpoint: path,
-        original: resp,
+        statusCode: resp.statusCode,
       );
     }
     final code = resp.data?['code'];
     if (code != null && code != 200) {
-      throw PanelFallbackException(
-        'API code=$code: ${resp.data?['message']}',
-        endpoint: path,
-        original: resp,
-      );
+      throw PanelFallbackException('API code=$code');
     }
+  }
+}
+
+/// Interceptor that adds 1Panel V2 auth headers to every request.
+class _AuthInterceptor extends Interceptor {
+  final String _apiKey;
+
+  _AuthInterceptor({required String apiKey}) : _apiKey = apiKey;
+
+  @override
+  void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
+    final timestamp = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final token = md5
+        .convert(utf8.encode('1panel$_apiKey$timestamp'))
+        .toString();
+    options.headers['1Panel-Token'] = token;
+    options.headers['1Panel-Timestamp'] = timestamp.toString();
+    handler.next(options);
   }
 }

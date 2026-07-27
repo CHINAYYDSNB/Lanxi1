@@ -8,37 +8,51 @@ void main() {
       expect(ex.message, 'API Error 403');
     });
 
-    test('constructor sets endpoint when provided', () {
+    test('constructor sets statusCode when provided', () {
       const ex = PanelFallbackException(
         'Not found',
-        endpoint: '/api/v2/files',
+        statusCode: 404,
       );
-      expect(ex.endpoint, '/api/v2/files');
+      expect(ex.statusCode, 404);
     });
 
-    test('constructor sets original error when provided', () {
+    test('constructor sets originalError when provided', () {
       final original = Exception('connection reset');
       final ex = PanelFallbackException(
         'Dio error',
-        original: original,
+        originalError: original,
       );
-      expect(ex.original, same(original));
+      expect(ex.originalError, same(original));
     });
 
-    test('toString includes message and endpoint', () {
+    test('toString includes message and statusCode', () {
       const ex = PanelFallbackException(
         'timeout',
-        endpoint: '/api/v2/dashboard',
+        statusCode: 408,
       );
       final str = ex.toString();
       expect(str, contains('timeout'));
-      expect(str, contains('/api/v2/dashboard'));
+      expect(str, contains('408'));
     });
 
-    test('toString works when endpoint is empty', () {
+    test('toString works without statusCode', () {
       const ex = PanelFallbackException('generic error');
       final str = ex.toString();
       expect(str, contains('generic error'));
+    });
+  });
+
+  group('SshConnectionException', () {
+    test('constructor sets message and host', () {
+      const ex = SshConnectionException('Connection refused', host: '10.0.0.1');
+      expect(ex.message, 'Connection refused');
+      expect(ex.host, '10.0.0.1');
+    });
+
+    test('toString includes host', () {
+      const ex = SshConnectionException('timeout', host: 'example.com');
+      final str = ex.toString();
+      expect(str, contains('example.com'));
     });
   });
 }

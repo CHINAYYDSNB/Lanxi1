@@ -1,8 +1,10 @@
 // ignore_for_file: require_trailing_commas
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lanxi/core/source/exceptions.dart';
 import 'package:lanxi/core/source/panel/dio_panel_api_client.dart';
 import 'package:lanxi/core/source/panel/one_panel_adapter.dart';
+import 'package:lanxi/models/domain/system_stats.dart';
 import 'package:mocktail/mocktail.dart';
 
 class _MockClient extends Mock implements DioPanelApiClient {}
@@ -17,10 +19,11 @@ void main() {
   });
 
   group('getHostInfo', () {
-    test('parses nested currentInfo structure', () async {
+    test('parses nested currentInfo structure via DTO', () async {
       when(() => mockClient.post('/api/v2/dashboard/base/0/0'))
           .thenAnswer((_) async => <String, dynamic>{
                 'code': 200,
+                'message': 'success',
                 'data': <String, dynamic>{
                   'currentInfo': <String, dynamic>{
                     'cpuUsedPercent': 35.2,
@@ -28,10 +31,13 @@ void main() {
                     'memoryUsed': 4294967296,
                     'diskData': <dynamic>[
                       <String, dynamic>{
+                        'path': '/',
                         'total': 107374182400,
                         'used': 53687091200,
                       },
                     ],
+                    'hostName': 'test-server',
+                    'osInfo': 'Debian 13',
                     'loadAvg': 1.2,
                   },
                 },
@@ -40,23 +46,34 @@ void main() {
       final result = await adapter.getHostInfo();
 
       expect(result.cpuPercent, 35.2);
-      expect(result.memoryTotal, 8192);
-      expect(result.memoryUsed, 4096);
-      expect(result.diskTotal, 102400);
-      expect(result.diskUsed, 51200);
+      expect(result.memTotalMb, 8192);
+      expect(result.memUsedMb, 4096);
+      expect(result.disks.length, 1);
+      expect(result.disks.first.path, '/');
+      expect(result.hostName, 'test-server');
+      expect(result.osInfo, 'Debian 13');
       expect(result.loadAvg, closeTo(1.2, 0.01));
+      expect(result.source, SystemStatsSource.api);
     });
 
     test('parses flat structure when currentInfo is absent', () async {
       when(() => mockClient.post('/api/v2/dashboard/base/0/0'))
           .thenAnswer((_) async => <String, dynamic>{
                 'code': 200,
+                'message': 'success',
                 'data': <String, dynamic>{
                   'cpuUsedPercent': 50.0,
                   'memoryTotal': 4194304,
                   'memoryUsed': 2097152,
-                  'diskTotal': 53687091200,
-                  'diskUsed': 26843545600,
+                  'diskData': <dynamic>[
+                    <String, dynamic>{
+                      'path': '/',
+                      'total': 53687091200,
+                      'used': 26843545600,
+                    },
+                  ],
+                  'hostName': 'mini',
+                  'osInfo': 'Ubuntu 24',
                   'loadAvg': 2.5,
                 },
               });
@@ -64,33 +81,43 @@ void main() {
       final result = await adapter.getHostInfo();
 
       expect(result.cpuPercent, 50.0);
-      expect(result.memoryTotal, 4);
-      expect(result.diskTotal, 51200);
+      expect(result.memTotalMb, 4);
+      expect(result.hostName, 'mini');
     });
 
-    test('returns defaults when API returns empty data', () async {
+    test('throws PanelFallbackException on API error code', () async {
       when(() => mockClient.post('/api/v2/dashboard/base/0/0'))
           .thenAnswer((_) async => <String, dynamic>{
-                'code': 200,
-                'data': <String, dynamic>{},
+                'code': 403,
+                'message': 'forbidden',
+                'data': null,
               });
 
-      final result = await adapter.getHostInfo();
+      expect(
+        () => adapter.getHostInfo(),
+        throwsA(isA<PanelFallbackException>()),
+      );
+    });
 
-      expect(result.cpuPercent, 0.0);
-      expect(result.memoryTotal, 0);
-      expect(result.diskTotal, 0);
-      expect(result.loadAvg, 0.0);
+    test('wraps unexpected errors in PanelFallbackException', () async {
+      when(() => mockClient.post('/api/v2/dashboard/base/0/0'))
+          .thenThrow(Exception('connection lost'));
+
+      expect(
+        () => adapter.getHostInfo(),
+        throwsA(isA<PanelFallbackException>()),
+      );
     });
   });
 
   group('listDir', () {
-    test('parses file list response', () async {
+    test('parses file list response via DTO', () async {
       when(() => mockClient.get(
             '/api/v2/files',
             queryParameters: any(named: 'queryParameters'),
           )).thenAnswer((_) async => <String, dynamic>{
             'code': 200,
+            'message': 'success',
             'data': <dynamic>[
               <String, dynamic>{
                 'name': 'test.txt',
@@ -123,7 +150,7 @@ void main() {
       when(() => mockClient.get(
             '/api/v2/files',
             queryParameters: any(named: 'queryParameters'),
-          )).thenAnswer((_) async => <String, dynamic>{'code': 200});
+          )).thenAnswer((_) async => <String, dynamic>{'code': 200, 'message': 'ok'});
 
       final items = await adapter.listDir('/empty');
 
@@ -138,17 +165,13 @@ void main() {
             data: any(named: 'data'),
           )).thenAnswer((_) async => <String, dynamic>{
             'code': 200,
-            'data': <String, dynamic>{'size': 1048576},
+            'message': 'success',
           });
 
-      final result = await adapter.compress(
-        ['/tmp/a.log'],
-        '/tmp/a.zip',
-      );
+      final result = await adapter.compress(['/tmp/a.log'], '/tmp/a.zip');
 
       expect(result.success, true);
       expect(result.destPath, '/tmp/a.zip');
-      expect(result.size, 1048576);
     });
   });
 }

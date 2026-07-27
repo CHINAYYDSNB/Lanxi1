@@ -1,110 +1,129 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lanxi/models/system_snapshot.dart';
+import 'package:lanxi/models/domain/system_stats.dart';
 
 void main() {
-  group('SystemSnapshot', () {
+  group('SystemStats', () {
     test('fromJson parses all fields correctly', () {
       final json = {
         'cpuPercent': 45.2,
-        'memoryTotal': 8192,
-        'memoryUsed': 4096,
-        'diskTotal': 102400,
-        'diskUsed': 51200,
+        'memTotalMb': 8192,
+        'memUsedMb': 4096,
+        'disks': <dynamic>[],
+        'diskTotalMb': 102400,
+        'diskUsedMb': 51200,
         'loadAvg': 1.5,
         'timestamp': '2026-07-27T12:00:00.000Z',
+        'source': 'api',
       };
 
-      final snapshot = SystemSnapshot.fromJson(json);
+      final snapshot = SystemStats.fromJson(json);
 
       expect(snapshot.cpuPercent, 45.2);
-      expect(snapshot.memoryTotal, 8192);
-      expect(snapshot.memoryUsed, 4096);
-      expect(snapshot.diskTotal, 102400);
-      expect(snapshot.diskUsed, 51200);
+      expect(snapshot.memTotalMb, 8192);
+      expect(snapshot.memUsedMb, 4096);
+      expect(snapshot.diskTotalMb, 102400);
+      expect(snapshot.diskUsedMb, 51200);
       expect(snapshot.loadAvg, 1.5);
-      expect(
-        snapshot.timestamp.toIso8601String(),
-        '2026-07-27T12:00:00.000Z',
-      );
+      expect(snapshot.timestamp.toIso8601String(), '2026-07-27T12:00:00.000Z');
     });
 
     test('fromJson defaults to zero/now for null fields', () {
       final json = <String, dynamic>{};
 
-      final snapshot = SystemSnapshot.fromJson(json);
+      final snapshot = SystemStats.fromJson(json);
 
       expect(snapshot.cpuPercent, 0.0);
-      expect(snapshot.memoryTotal, 0);
-      expect(snapshot.memoryUsed, 0);
-      expect(snapshot.diskTotal, 0);
-      expect(snapshot.diskUsed, 0);
+      expect(snapshot.memTotalMb, 0);
+      expect(snapshot.memUsedMb, 0);
+      expect(snapshot.diskTotalMb, 0);
+      expect(snapshot.diskUsedMb, 0);
       expect(snapshot.loadAvg, 0.0);
-      // timestamp defaults to now — just verify it's a valid DateTime
       expect(snapshot.timestamp, isA<DateTime>());
     });
 
     test('toJson round-trips correctly', () {
-      final original = SystemSnapshot(
+      final original = SystemStats(
         cpuPercent: 72.1,
-        memoryTotal: 16384,
-        memoryUsed: 8192,
-        diskTotal: 512000,
-        diskUsed: 204800,
+        memTotalMb: 16384,
+        memUsedMb: 8192,
+        disks: const [],
+        diskTotalMb: 512000,
+        diskUsedMb: 204800,
         loadAvg: 2.1,
         timestamp: DateTime(2026, 7, 27, 12, 0, 0),
       );
 
       final json = original.toJson();
-      final restored = SystemSnapshot.fromJson(json);
+      final restored = SystemStats.fromJson(json);
 
       expect(restored.cpuPercent, original.cpuPercent);
-      expect(restored.memoryTotal, original.memoryTotal);
-      expect(restored.memoryUsed, original.memoryUsed);
-      expect(restored.diskTotal, original.diskTotal);
-      expect(restored.diskUsed, original.diskUsed);
+      expect(restored.memTotalMb, original.memTotalMb);
+      expect(restored.memUsedMb, original.memUsedMb);
+      expect(restored.diskTotalMb, original.diskTotalMb);
+      expect(restored.diskUsedMb, original.diskUsedMb);
       expect(restored.loadAvg, original.loadAvg);
     });
 
-    test('memoryPercent computes correctly', () {
-      final snapshot = SystemSnapshot(
+    test('memPercent computes correctly', () {
+      final stats = SystemStats(
         cpuPercent: 0,
-        memoryTotal: 1000,
-        memoryUsed: 250,
-        diskTotal: 0,
-        diskUsed: 0,
+        memTotalMb: 1000,
+        memUsedMb: 250,
+        disks: const [],
+        diskTotalMb: 0,
+        diskUsedMb: 0,
         loadAvg: 0,
-        timestamp: DateTime.now(),
       );
 
-      expect(snapshot.memoryPercent, 25.0);
+      expect(stats.memPercent, 25.0);
     });
 
-    test('memoryPercent returns 0 when total is 0', () {
-      final snapshot = SystemSnapshot(
+    test('memPercent returns 0 when total is 0', () {
+      final stats = SystemStats(
         cpuPercent: 0,
-        memoryTotal: 0,
-        memoryUsed: 100,
-        diskTotal: 0,
-        diskUsed: 0,
+        memTotalMb: 0,
+        memUsedMb: 100,
+        disks: const [],
+        diskTotalMb: 0,
+        diskUsedMb: 0,
         loadAvg: 0,
-        timestamp: DateTime.now(),
       );
 
-      expect(snapshot.memoryPercent, 0.0);
+      expect(stats.memPercent, 0.0);
     });
 
     test('diskPercent computes correctly', () {
-      final snapshot = SystemSnapshot(
+      final stats = SystemStats(
         cpuPercent: 0,
-        memoryTotal: 0,
-        memoryUsed: 0,
-        diskTotal: 1000,
-        diskUsed: 750,
+        memTotalMb: 0,
+        memUsedMb: 0,
+        disks: const [],
+        diskTotalMb: 1000,
+        diskUsedMb: 750,
         loadAvg: 0,
-        timestamp: DateTime.now(),
       );
 
-      expect(snapshot.diskPercent, 75.0);
+      expect(stats.diskPercent, 75.0);
+    });
+  });
+
+  group('DiskInfo', () {
+    test('fromJson and toJson round-trip', () {
+      final json = <String, dynamic>{'path': '/', 'totalMb': 1000, 'usedMb': 500};
+      final info = DiskInfo.fromJson(json);
+      expect(info.path, '/');
+      expect(info.totalMb, 1000);
+      expect(info.usedMb, 500);
+    });
+
+    test('freeMb computes correctly', () {
+      const info = DiskInfo(path: '/', totalMb: 1000, usedMb: 300);
+      expect(info.freeMb, 700);
+    });
+
+    test('percent computes correctly', () {
+      const info = DiskInfo(path: '/', totalMb: 2000, usedMb: 500);
+      expect(info.percent, 25.0);
     });
   });
 }

@@ -8,8 +8,8 @@ import 'package:lanxi/core/logger.dart';
 import 'package:lanxi/core/source/exceptions.dart';
 import 'package:lanxi/core/source/server_source.dart';
 import 'package:lanxi/models/compress_result.dart';
-import 'package:lanxi/models/file_item.dart';
-import 'package:lanxi/models/system_snapshot.dart';
+import 'package:lanxi/models/domain/file_item.dart';
+import 'package:lanxi/models/domain/system_stats.dart';
 
 import 'one_panel_server_source.dart';
 
@@ -23,7 +23,7 @@ class FallbackServerSource implements ServerSource {
   });
 
   @override
-  Future<SystemSnapshot> getSystemInfo() async {
+  Future<SystemStats> getSystemInfo() async {
     try {
       return await panel.getSystemInfo();
     } on PanelFallbackException catch (e) {

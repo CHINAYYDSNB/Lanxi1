@@ -1,6 +1,6 @@
 import 'package:lanxi/models/compress_result.dart';
-import 'package:lanxi/models/file_item.dart';
-import 'package:lanxi/models/system_snapshot.dart';
+import 'package:lanxi/models/domain/file_item.dart';
+import 'package:lanxi/models/domain/system_stats.dart';
 
 /// Abstract interface for all server operations.
 ///
@@ -19,7 +19,7 @@ abstract class ServerSource {
   // ── Monitoring ──
 
   /// Read current CPU, memory, and disk stats.
-  Future<SystemSnapshot> getSystemInfo();
+  Future<SystemStats> getSystemInfo();
 
   // ── System Configuration ──
 

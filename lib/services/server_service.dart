@@ -6,8 +6,8 @@ library;
 
 import 'package:lanxi/core/source/server_source.dart';
 import 'package:lanxi/models/compress_result.dart';
-import 'package:lanxi/models/file_item.dart';
-import 'package:lanxi/models/system_snapshot.dart';
+import 'package:lanxi/models/domain/file_item.dart';
+import 'package:lanxi/models/domain/system_stats.dart';
 
 class ServerService {
   final ServerSource _source;
@@ -16,7 +16,7 @@ class ServerService {
 
   // ── Monitoring ──
 
-  Future<SystemSnapshot> getSystemInfo() => _source.getSystemInfo();
+  Future<SystemStats> getSystemInfo() => _source.getSystemInfo();
 
   // ── File Operations ──
 

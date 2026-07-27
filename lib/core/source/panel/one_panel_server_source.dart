@@ -8,8 +8,8 @@ library;
 import 'package:lanxi/core/source/exceptions.dart';
 import 'package:lanxi/core/source/server_source.dart';
 import 'package:lanxi/models/compress_result.dart';
-import 'package:lanxi/models/file_item.dart';
-import 'package:lanxi/models/system_snapshot.dart';
+import 'package:lanxi/models/domain/file_item.dart';
+import 'package:lanxi/models/domain/system_stats.dart';
 
 import 'one_panel_adapter.dart';
 
@@ -19,7 +19,7 @@ class OnePanelServerSource implements ServerSource {
   OnePanelServerSource(this._adapter);
 
   @override
-  Future<SystemSnapshot> getSystemInfo() => _adapter.getHostInfo();
+  Future<SystemStats> getSystemInfo() => _adapter.getHostInfo();
 
   @override
   Future<List<FileItem>> listDir(String path) => _adapter.listDir(path);
@@ -32,7 +32,6 @@ class OnePanelServerSource implements ServerSource {
   Future<void> setNtp(String server) {
     throw const PanelFallbackException(
       'setNtp not available through 1Panel API',
-      endpoint: 'setNtp',
     );
   }
 
@@ -40,7 +39,6 @@ class OnePanelServerSource implements ServerSource {
   Future<void> changeRootPassword(String newPass) {
     throw const PanelFallbackException(
       'changeRootPassword not available through 1Panel API',
-      endpoint: 'changeRootPassword',
     );
   }
 }

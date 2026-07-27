@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lanxi/models/file_item.dart';
+import 'package:lanxi/models/domain/file_item.dart';
 
 void main() {
   group('FileItem', () {
