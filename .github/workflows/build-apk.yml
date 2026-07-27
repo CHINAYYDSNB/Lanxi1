@@ -54,7 +54,6 @@ jobs:
       - name: Restore keystore (placeholder for real signing)
         run: |
           mkdir -p android/app/keystore
-          # In real CI, restore from secrets. For now, use debug signing.
           echo "Using debug signing (test builds only)."
 
       - name: Flutter Analyze
