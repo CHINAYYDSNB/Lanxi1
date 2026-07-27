@@ -1,0 +1,233 @@
+name: build-apk
+
+on:
+  push:
+    branches: [main, 'phase/**', 'test/**', 'wip/**', 'refactor/**']
+  pull_request:
+    branches: [main]
+
+env:
+  # Node 24 适配（GitHub 2025-09-19 公告：Node 20 将于 2026-04 EOL）
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+  # Flutter 环境
+  FLUTTER_VERSION: '3.24.x'
+  FLUTTER_CHANNEL: 'stable'
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: ${{ env.FLUTTER_CHANNEL }}
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze --no-fatal-warnings
+
+      - name: Check for banned print()
+        run: |
+          echo "::group::Scanning for banned print() usage"
+          if grep -rn "print(" lib/ --include="*.dart" | grep -v "//.*print(" | grep -v "debugPrint"; then
+            echo "::error::print() is banned. Use appLogger."
+            exit 1
+          fi
+          echo "::endgroup::"
+
+      - name: Check for single-quote SSH interpolation
+        run: |
+          echo "::group::Scanning for single-quote \$var patterns"
+          # Detect single-quoted strings containing $var patterns
+          if grep -rn "'[^']*\$[a-zA-Z_][a-zA-Z0-9_]*" lib/core/ --include="*.dart"; then
+            echo "::warning::Possible single-quote string with \$var found. Verify interpolation."
+          fi
+          echo "::endgroup::"
+
+  test:
+    runs-on: ubuntu-latest
+    needs: analyze
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: ${{ env.FLUTTER_CHANNEL }}
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Run tests with coverage
+        run: |
+          flutter test --coverage
+          echo "::group::Coverage Report"
+          if [ -f coverage/lcov.info ]; then
+            # Extract total coverage percentage
+            COVERAGE=$(lcov --summary coverage/lcov.info 2>/dev/null | grep "lines" | awk '{print $2}' | sed 's/%//')
+            echo "Current coverage: ${COVERAGE}%"
+            # Check threshold
+            THRESHOLD=70
+            if (( $(echo "$COVERAGE < $THRESHOLD" | bc -l) )); then
+              echo "::error::Coverage ${COVERAGE}% is below threshold ${THRESHOLD}%"
+              exit 1
+            fi
+          else
+            echo "::warning::No coverage data found"
+          fi
+          echo "::endgroup::"
+
+      - name: Check for fake tests
+        run: |
+          echo "::group::Scanning for fake tests"
+          if grep -rn "expect(true, true)" test/ --include="*.dart"; then
+            echo "::error::Fake test detected: expect(true, true)"
+            exit 1
+          fi
+          if grep -rn "expect(1, 1)" test/ --include="*.dart"; then
+            echo "::error::Fake test detected: expect(1, 1)"
+            exit 1
+          fi
+          echo "::endgroup::"
+
+  build:
+    runs-on: ubuntu-latest
+    needs: test
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+    outputs:
+      apk-name: ${{ steps.build.outputs.apk-name }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: ${{ env.FLUTTER_CHANNEL }}
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Verify commit prefix
+        run: |
+          COMMIT_MSG="${{ github.event.head_commit.message }}"
+          echo "Commit message: $COMMIT_MSG"
+
+          # Extract prefix (before colon or parenthesis)
+          if [[ "$COMMIT_MSG" =~ ^(test|wip|done|shell|fix|refactor)(\(.+\))?: ]]; then
+            PREFIX="${BASH_REMATCH[1]}"
+            echo "✅ Valid prefix: $PREFIX"
+          else
+            echo "::error::Commit prefix not recognized. Allowed: test:/wip:/done:/shell:/fix:/refactor:"
+            echo "::error::Got: $COMMIT_MSG"
+            exit 1
+          fi
+
+      - name: Check for android/ directory
+        id: check-android
+        run: |
+          if [ ! -d "android" ]; then
+            echo "android_missing=true" >> $GITHUB_OUTPUT
+            echo "⚠️ android/ directory not found, will generate via flutter create"
+          else
+            echo "android_missing=false" >> $GITHUB_OUTPUT
+            echo "✅ android/ directory exists"
+          fi
+
+      - name: Generate android/ if missing
+        if: steps.check-android.outputs.android-missing == 'true'
+        run: |
+          echo "📦 Generating android/ directory..."
+          flutter create --platforms=android . --org com.lanxi.app
+          echo "✅ android/ generated"
+
+      - name: Restore keystore (if available)
+        id: keystore
+        continue-on-error: true
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > android/app/keystore.jks
+            echo "has_keystore=true" >> $GITHUB_OUTPUT
+            echo "✅ Keystore restored from secrets"
+          else
+            echo "has_keystore=false" >> $GITHUB_OUTPUT
+            echo "⚠️ No keystore secret found, will build debug APK"
+          fi
+
+      - name: Build APK
+        id: build
+        run: |
+          COMMIT_MSG="${{ github.event.head_commit.message }}"
+
+          if [[ "$COMMIT_MSG" =~ ^done(:) ]] && [ "${{ steps.keystore.outputs.has_keystore }}" == "true" ]; then
+            echo "🔐 Building RELEASE APK..."
+            # Configure signing
+            cat > android/key.properties <<EOF
+            storePassword=${{ secrets.KEYSTORE_PASSWORD }}
+            keyPassword=${{ secrets.KEY_PASSWORD }}
+            keyAlias=${{ secrets.KEY_ALIAS }}
+            storeFile=keystore.jks
+          EOF
+            flutter build apk --release
+            APK_PATH="build/app/outputs/flutter-apk/app-release.apk"
+            APK_NAME="lanxi-release.apk"
+          else
+            echo "🔧 Building DEBUG APK..."
+            flutter build apk --debug
+            APK_PATH="build/app/outputs/flutter-apk/app-debug.apk"
+            APK_NAME="lanxi-debug.apk"
+          fi
+
+          # Verify APK type matches prefix
+          if [[ "$COMMIT_MSG" =~ ^test(:) ]] && [[ "$APK_NAME" =~ release ]]; then
+            echo "::error::test(:) commits must not produce release APK"
+            exit 1
+          fi
+
+          echo "apk-name=$APK_NAME" >> $GITHUB_OUTPUT
+          echo "::group::APK Info"
+          ls -lh "$APK_PATH"
+          echo "::endgroup::"
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.build.outputs.apk-name || 'lanxi-apk' }}
+          path: build/app/outputs/flutter-apk/*.apk
+          retention-days: 14
+
+  # Block test: prefix from merging to main
+  gatekeeper:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    needs: build
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+    steps:
+      - name: Block test: commits on main
+        run: |
+          COMMIT_MSG="${{ github.event.head_commit.message }}"
+          if [[ "$COMMIT_MSG" =~ ^test(:) ]]; then
+            echo "::error::🚫 'test:' commits are build-only and CANNOT be merged into main."
+            echo "::error::Amend commit to 'wip(:)' or 'done(:)' before merging."
+            exit 1
+          fi
+          echo "✅ Commit prefix allowed on main"
