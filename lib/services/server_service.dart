@@ -1,0 +1,34 @@
+/// Facade that UI layers talk to.
+///
+/// Zero branching — no `if (isPanel)` checks.
+/// Every method delegates directly to the injected [ServerSource].
+library;
+
+import 'package:lanxi/core/source/server_source.dart';
+import 'package:lanxi/models/compress_result.dart';
+import 'package:lanxi/models/file_item.dart';
+import 'package:lanxi/models/system_snapshot.dart';
+
+class ServerService {
+  final ServerSource _source;
+
+  ServerService(this._source);
+
+  // ── Monitoring ──
+
+  Future<SystemSnapshot> getSystemInfo() => _source.getSystemInfo();
+
+  // ── File Operations ──
+
+  Future<List<FileItem>> listDir(String path) => _source.listDir(path);
+
+  Future<CompressResult> compress(List<String> src, String dest) =>
+      _source.compress(src, dest);
+
+  // ── System Configuration ──
+
+  Future<void> setNtp(String server) => _source.setNtp(server);
+
+  Future<void> changeRootPassword(String newPass) =>
+      _source.changeRootPassword(newPass);
+}
