@@ -46,7 +46,7 @@ void main() {
         'pw123',
       );
 
-      await tester.tap(find.widgetWithText(TextButton, '保存'));
+      await tester.tap(find.text('保存'));
       await tester.pumpAndSettle();
 
       final all = await store.list();
@@ -82,7 +82,7 @@ void main() {
         'api-xyz',
       );
 
-      await tester.tap(find.widgetWithText(TextButton, '保存'));
+      await tester.tap(find.text('保存'));
       await tester.pumpAndSettle();
 
       final all = await store.list();

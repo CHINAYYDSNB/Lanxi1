@@ -26,7 +26,7 @@ void main() {
         find.widgetWithText(TextFormField, 'NTP 服务器'),
         'time.example.com',
       );
-      await tester.tap(find.widgetWithText(FilledButton, '应用'));
+      await tester.tap(find.text('应用'));
       await tester.pumpAndSettle();
 
       verify(() => service.setNtp('time.example.com')).called(1);
@@ -45,7 +45,7 @@ void main() {
         find.widgetWithText(TextFormField, '新密码'),
         'new-secret',
       );
-      await tester.tap(find.widgetWithText(FilledButton, '修改'));
+      await tester.tap(find.text('修改'));
       await tester.pumpAndSettle();
 
       verify(() => service.changeRootPassword('new-secret')).called(1);
