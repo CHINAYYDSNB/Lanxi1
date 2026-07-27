@@ -14,6 +14,7 @@ import 'package:dartssh2/dartssh2.dart';
 import 'package:lanxi/core/logger.dart';
 import 'package:lanxi/core/ssh/ssh_connection.dart';
 import 'package:lanxi/core/ssh/ssh_session_pool.dart';
+import 'package:lanxi/core/source/panel_detector.dart';
 import 'package:lanxi/core/source/server_source.dart';
 import 'package:lanxi/models/compress_result.dart';
 import 'package:lanxi/models/domain/file_item.dart';
@@ -53,6 +54,29 @@ class SshServerSource implements ServerSource {
     }
     return lines.trim();
   }
+
+  /// Public command runner — used by [PanelDetector] and callers that need raw
+  /// stdout without streaming.
+  Future<String> exec(String cmd) => _exec(cmd);
+
+  /// Execute [cmd] and stream stdout chunks as they arrive.
+  ///
+  /// Each chunk is decoded as UTF-8. The stream completes when the remote
+  /// command finishes. Command strings MUST be double-quoted (see CI rules).
+  Stream<String> execStream(String cmd) async* {
+    final client = await _getClient();
+    final session = await client.execute(cmd);
+    await for (final chunk in session.stdout) {
+      yield utf8.decode(chunk.toList());
+    }
+    await session.done;
+  }
+
+  @override
+  Stream<String> streamCommand(String cmd) => execStream(cmd);
+
+  @override
+  Future<PanelStatus> detectPanel() => PanelDetector(exec).detect();
 
   // ── ServerSource implementation ──
 

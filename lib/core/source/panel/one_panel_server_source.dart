@@ -6,6 +6,7 @@
 library;
 
 import 'package:lanxi/core/source/exceptions.dart';
+import 'package:lanxi/core/source/panel_detector.dart';
 import 'package:lanxi/core/source/server_source.dart';
 import 'package:lanxi/models/compress_result.dart';
 import 'package:lanxi/models/domain/file_item.dart';
@@ -41,4 +42,15 @@ class OnePanelServerSource implements ServerSource {
       'changeRootPassword not available through 1Panel API',
     );
   }
+
+  @override
+  Stream<String> streamCommand(String cmd) {
+    // Panel API has no shell stream — signal the fallback layer to use SSH.
+    throw const PanelFallbackException(
+      'streamCommand not available through 1Panel API',
+    );
+  }
+
+  @override
+  Future<PanelStatus> detectPanel() async => PanelStatus.onePanel;
 }

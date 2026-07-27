@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lanxi/core/source/exceptions.dart';
+import 'package:lanxi/core/source/panel/fallback_server_source.dart';
 import 'package:lanxi/core/source/server_source_factory.dart';
 import 'package:lanxi/core/source/ssh_server_source.dart';
 
@@ -36,7 +36,8 @@ void main() {
         expect(source, isA<SshServerSource>());
       });
 
-      test('throws PlatformNotSupportedException when apiKey is present', () {
+      test('builds panel-fallback source when type is panel + apiKey',
+          () {
         const profile = ServerProfile(
           id: 'p3',
           name: 'srv',
@@ -46,10 +47,9 @@ void main() {
           apiKey: 'some-api-key',
         );
 
-        expect(
-          () => ServerSourceFactory.build(profile),
-          throwsA(isA<PlatformNotSupportedException>()),
-        );
+        final source = ServerSourceFactory.build(profile);
+
+        expect(source, isA<FallbackServerSource>());
       });
     });
 

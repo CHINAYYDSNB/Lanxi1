@@ -1,6 +1,7 @@
 // ignore_for_file: require_trailing_commas
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lanxi/core/source/panel_detector.dart';
 import 'package:lanxi/core/source/server_source.dart';
 import 'package:lanxi/models/compress_result.dart';
 import 'package:lanxi/models/domain/file_item.dart';
@@ -100,6 +101,28 @@ void main() {
       await service.changeRootPassword('newPass!');
 
       verify(() => mockSource.changeRootPassword('newPass!')).called(1);
+    });
+  });
+
+  group('streamCommand', () {
+    test('delegates to source', () {
+      when(() => mockSource.streamCommand(any()))
+          .thenAnswer((_) => Stream.value('line'));
+
+      final stream = service.streamCommand('echo hi');
+
+      expect(stream, isA<Stream<String>>());
+      verify(() => mockSource.streamCommand('echo hi')).called(1);
+    });
+  });
+
+  group('detectPanel', () {
+    test('delegates to source', () async {
+      when(() => mockSource.detectPanel())
+          .thenAnswer((_) async => PanelStatus.none);
+
+      expect(await service.detectPanel(), PanelStatus.none);
+      verify(() => mockSource.detectPanel()).called(1);
     });
   });
 }

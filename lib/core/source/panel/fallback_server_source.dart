@@ -6,6 +6,7 @@ library;
 
 import 'package:lanxi/core/logger.dart';
 import 'package:lanxi/core/source/exceptions.dart';
+import 'package:lanxi/core/source/panel_detector.dart';
 import 'package:lanxi/core/source/server_source.dart';
 import 'package:lanxi/models/compress_result.dart';
 import 'package:lanxi/models/domain/file_item.dart';
@@ -69,6 +70,26 @@ class FallbackServerSource implements ServerSource {
     } on PanelFallbackException catch (e) {
       appLogger.w('Fallback: API changeRootPassword failed — using SSH ($e)');
       await ssh.changeRootPassword(newPass);
+    }
+  }
+
+  @override
+  Stream<String> streamCommand(String cmd) {
+    try {
+      return panel.streamCommand(cmd);
+    } on PanelFallbackException catch (e) {
+      appLogger.w('Fallback: API streamCommand failed — using SSH ($e)');
+      return ssh.streamCommand(cmd);
+    }
+  }
+
+  @override
+  Future<PanelStatus> detectPanel() async {
+    try {
+      return await panel.detectPanel();
+    } on PanelFallbackException catch (e) {
+      appLogger.w('Fallback: API detectPanel failed — using SSH ($e)');
+      return ssh.detectPanel();
     }
   }
 }

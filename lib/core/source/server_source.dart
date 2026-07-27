@@ -1,3 +1,4 @@
+import 'package:lanxi/core/source/panel_detector.dart';
 import 'package:lanxi/models/compress_result.dart';
 import 'package:lanxi/models/domain/file_item.dart';
 import 'package:lanxi/models/domain/system_stats.dart';
@@ -28,4 +29,13 @@ abstract class ServerSource {
 
   /// Change the root password.
   Future<void> changeRootPassword(String newPass);
+
+  // ── Streaming / Detection ──
+
+  /// Stream a command's stdout as it arrives (used for live terminal output,
+  /// e.g. the 1Panel installer). SSH-only; panel throws [PanelFallbackException].
+  Stream<String> streamCommand(String cmd);
+
+  /// Probe the host for a known control panel (1Panel / 宝塔).
+  Future<PanelStatus> detectPanel();
 }

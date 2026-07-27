@@ -4,6 +4,7 @@
 /// Every method delegates directly to the injected [ServerSource].
 library;
 
+import 'package:lanxi/core/source/panel_detector.dart';
 import 'package:lanxi/core/source/server_source.dart';
 import 'package:lanxi/models/compress_result.dart';
 import 'package:lanxi/models/domain/file_item.dart';
@@ -31,4 +32,12 @@ class ServerService {
 
   Future<void> changeRootPassword(String newPass) =>
       _source.changeRootPassword(newPass);
+
+  // ── Streaming / Detection ──
+
+  /// Stream a command's stdout (e.g. for the live 1Panel install terminal).
+  Stream<String> streamCommand(String cmd) => _source.streamCommand(cmd);
+
+  /// Probe the host for a control panel (1Panel / 宝塔).
+  Future<PanelStatus> detectPanel() => _source.detectPanel();
 }

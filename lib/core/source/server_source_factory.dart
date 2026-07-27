@@ -6,10 +6,14 @@
 library;
 
 import 'package:lanxi/core/logger.dart';
-import 'package:lanxi/core/ssh/ssh_connection.dart';
-import 'package:lanxi/core/ssh/ssh_session_pool.dart';
+import 'package:lanxi/core/source/panel/dio_panel_api_client.dart';
+import 'package:lanxi/core/source/panel/fallback_server_source.dart';
+import 'package:lanxi/core/source/panel/one_panel_adapter.dart';
+import 'package:lanxi/core/source/panel/one_panel_server_source.dart';
 import 'package:lanxi/core/source/server_source.dart';
 import 'package:lanxi/core/source/ssh_server_source.dart';
+import 'package:lanxi/core/ssh/ssh_connection.dart';
+import 'package:lanxi/core/ssh/ssh_session_pool.dart';
 
 import 'exceptions.dart';
 
@@ -104,17 +108,34 @@ class ServerProfile {
 
 /// Builds the correct [ServerSource] for a given [ServerProfile].
 abstract final class ServerSourceFactory {
+  /// Route by transport type: panel profiles get the API-first fallback chain,
+  /// everything else gets a plain SSH source.
   static ServerSource build(ServerProfile profile) {
-    if (profile.apiKey != null && profile.apiKey!.isNotEmpty) {
+    if (profile.type == ServerSourceType.panel) {
       appLogger.i('ServerSourceFactory: building panel-fallback source');
-      throw const PlatformNotSupportedException(
-        'FallbackServerSource (Panel+SSH) not yet wired — '
-        'use ServerSourceFactory.buildSsh() for SSH-only.',
-      );
+      return buildPanel(profile);
     }
 
     appLogger.i('ServerSourceFactory: building SSH-only source');
     return buildSsh(profile);
+  }
+
+  /// Build a panel-first, SSH-fallback source.
+  ///
+  /// 1Panel API handles monitoring/file ops; system config (NTP, root pw)
+  /// falls back to SSH via [FallbackServerSource] on [PanelFallbackException].
+  static ServerSource buildPanel(ServerProfile profile) {
+    final apiKey = profile.apiKey;
+    if (apiKey == null || apiKey.isEmpty) {
+      // No credential — degrade to plain SSH.
+      return buildSsh(profile);
+    }
+
+    final baseUrl = 'https://${profile.host}:${profile.port}';
+    final apiClient = DioPanelApiClient(baseUrl: baseUrl, apiKey: apiKey);
+    final panel = OnePanelServerSource(OnePanelAdapter(apiClient));
+    final ssh = buildSsh(profile);
+    return FallbackServerSource(panel: panel, ssh: ssh);
   }
 
   /// Build an SSH-only source (bypasses the panel layer).
