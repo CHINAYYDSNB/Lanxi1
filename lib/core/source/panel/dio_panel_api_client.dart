@@ -45,7 +45,7 @@ class DioPanelApiClient {
     } on DioException catch (e) {
       throw PanelFallbackException(
         'Dio error on GET $path',
-        originalError: e,
+        original: e,
       );
     }
   }
@@ -65,7 +65,7 @@ class DioPanelApiClient {
     } on DioException catch (e) {
       throw PanelFallbackException(
         'Dio error on POST $path',
-        originalError: e,
+        original: e,
       );
     }
   }

@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lanxi/core/source/exceptions.dart';
 import 'package:lanxi/core/source/server_source_factory.dart';
 import 'package:lanxi/core/source/ssh_server_source.dart';
 
@@ -29,7 +30,7 @@ void main() {
         expect(source, isA<SshServerSource>());
       });
 
-      test('throws UnimplementedError when apiKey is present', () {
+      test('throws PlatformNotSupportedException when apiKey is present', () {
         const profile = ServerProfile(
           host: '10.0.0.1',
           username: 'admin',
@@ -38,7 +39,7 @@ void main() {
 
         expect(
           () => ServerSourceFactory.build(profile),
-          throwsUnimplementedError,
+          throwsA(isA<PlatformNotSupportedException>()),
         );
       });
     });

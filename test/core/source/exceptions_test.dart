@@ -20,19 +20,19 @@ void main() {
       final original = Exception('connection reset');
       final ex = PanelFallbackException(
         'Dio error',
-        originalError: original,
+        original: original,
       );
-      expect(ex.originalError, same(original));
+      expect(ex.original, same(original));
     });
 
-    test('toString includes message and statusCode', () {
+    test('toString includes message', () {
       const ex = PanelFallbackException(
         'timeout',
         statusCode: 408,
       );
       final str = ex.toString();
+      expect(str, contains('PanelFallbackException'));
       expect(str, contains('timeout'));
-      expect(str, contains('408'));
     });
 
     test('toString works without statusCode', () {

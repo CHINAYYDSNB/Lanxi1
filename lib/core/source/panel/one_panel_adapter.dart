@@ -40,7 +40,7 @@ class OnePanelAdapter {
     } on PanelFallbackException {
       rethrow;
     } catch (e) {
-      throw PanelFallbackException('API unreachable', originalError: e);
+      throw PanelFallbackException('API unreachable', original: e);
     }
   }
 
@@ -70,7 +70,7 @@ class OnePanelAdapter {
     } on PanelFallbackException {
       rethrow;
     } catch (e) {
-      throw PanelFallbackException('API unreachable', originalError: e);
+      throw PanelFallbackException('API unreachable', original: e);
     }
   }
 
@@ -104,7 +104,7 @@ class OnePanelAdapter {
     } on PanelFallbackException {
       rethrow;
     } catch (e) {
-      throw PanelFallbackException('API unreachable', originalError: e);
+      throw PanelFallbackException('API unreachable', original: e);
     }
   }
 }

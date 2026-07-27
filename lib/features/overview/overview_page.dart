@@ -236,6 +236,7 @@ class _MetricCard extends StatelessWidget {
               child: LinearProgressIndicator(
                 value: progress.clamp(0.0, 1.0),
                 minHeight: 8,
+                // ignore: deprecated_member_use
                 backgroundColor: color.withOpacity(0.15),
                 valueColor: AlwaysStoppedAnimation(color),
               ),
@@ -279,6 +280,7 @@ class _DiskTile extends StatelessWidget {
           child: LinearProgressIndicator(
             value: (pct / 100).clamp(0.0, 1.0),
             minHeight: 4,
+            // ignore: deprecated_member_use
             backgroundColor: color.withOpacity(0.15),
             valueColor: AlwaysStoppedAnimation(color),
           ),
