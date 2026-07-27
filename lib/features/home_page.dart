@@ -38,6 +38,20 @@ class _HomePageState extends State<HomePage> {
         centerTitle: true,
         actions: [
           IconButton(
+            icon: Icon(
+              widget.appState.themeMode == ThemeMode.light
+                  ? Icons.dark_mode
+                  : Icons.light_mode,
+            ),
+            tooltip: '切换浅色 / 深色',
+            onPressed: () {
+              final next = widget.appState.themeMode == ThemeMode.light
+                  ? ThemeMode.dark
+                  : ThemeMode.light;
+              widget.appState.setThemeMode(next);
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.power_settings_new),
             tooltip: '断开连接',
             onPressed: () {

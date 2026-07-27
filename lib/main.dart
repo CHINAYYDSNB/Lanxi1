@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:lanxi/core/logger.dart';
+import 'package:lanxi/core/settings/theme_store.dart';
 import 'package:lanxi/core/store/secret_store.dart';
 import 'package:lanxi/core/store/server_store.dart';
 import 'package:lanxi/features/connection/app_state.dart';
 import 'package:lanxi/features/connection/connect_helper.dart';
 import 'package:lanxi/features/connection/server_list_page.dart';
 import 'package:lanxi/features/home_page.dart';
+import 'package:lanxi/theme/app_theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -45,6 +47,7 @@ class _LanxiAppState extends State<LanxiApp> {
     final prefs = await SharedPreferences.getInstance();
     final store = ServerStore(prefs: prefs, secret: SecureStorageSecretStore());
     if (!mounted) return;
+    _appState.attachThemeStore(ThemeStore(prefs));
     setState(() => _store = store);
 
     // Try auto-connect to the first available candidate.
@@ -87,11 +90,9 @@ class _LanxiAppState extends State<LanxiApp> {
         Locale('zh', 'CN'),
         Locale('en', 'US'),
       ],
-      theme: ThemeData(
-        colorSchemeSeed: Colors.indigo,
-        useMaterial3: true,
-        brightness: Brightness.dark,
-      ),
+      theme: lightTheme,
+      darkTheme: darkTheme,
+      themeMode: _appState.themeMode,
       home: _appState.isConnected
           ? HomePage(appState: _appState)
           : ServerListPage(appState: _appState, store: _store!),
