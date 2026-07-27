@@ -1,12 +1,39 @@
 import 'package:flutter/material.dart';
+import 'package:lanxi/features/connection/app_state.dart';
+import 'package:lanxi/features/connection/connection_screen.dart';
+import 'package:lanxi/features/home_page.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const LanxiApp());
 }
 
-class LanxiApp extends StatelessWidget {
+class LanxiApp extends StatefulWidget {
   const LanxiApp({super.key});
+
+  @override
+  State<LanxiApp> createState() => _LanxiAppState();
+}
+
+class _LanxiAppState extends State<LanxiApp> {
+  final AppState _appState = AppState();
+
+  @override
+  void initState() {
+    super.initState();
+    _appState.addListener(_onStateChanged);
+  }
+
+  @override
+  void dispose() {
+    _appState.removeListener(_onStateChanged);
+    _appState.dispose();
+    super.dispose();
+  }
+
+  void _onStateChanged() {
+    setState(() {});
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -18,11 +45,9 @@ class LanxiApp extends StatelessWidget {
         useMaterial3: true,
         brightness: Brightness.dark,
       ),
-      home: const Scaffold(
-        body: Center(
-          child: Text('Lanxi - Phase 1 Skeleton'),
-        ),
-      ),
+      home: _appState.isConnected
+          ? HomePage(appState: _appState)
+          : ConnectionScreen(appState: _appState),
     );
   }
 }
