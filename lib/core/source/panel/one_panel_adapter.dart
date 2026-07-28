@@ -9,6 +9,7 @@ import 'package:lanxi/models/compress_result.dart';
 import 'package:lanxi/models/domain/file_item.dart';
 import 'package:lanxi/models/domain/system_stats.dart';
 import 'package:lanxi/models/dto/api_response.dart';
+import 'package:lanxi/models/dto/container_dto.dart';
 import 'package:lanxi/models/dto/file_item_dto.dart';
 import 'package:lanxi/models/dto/host_status_dto.dart';
 
@@ -224,5 +225,147 @@ class OnePanelAdapter {
     } catch (e) {
       throw PanelFallbackException('API unreachable', original: e);
     }
+  }
+
+  // ── Docker ──
+
+  /// List containers.
+  ///
+  /// POST /api/v2/containers/search
+  /// 1Panel returns `data` either as a bare list or as an object
+  /// `{items: [...], total: N}` — both shapes are accepted.
+  Future<List<ContainerDomain>> listContainers() async {
+    try {
+      final response = await _client.post(
+        '/api/v2/containers/search',
+        data: const <String, dynamic>{},
+      );
+      final apiResp = ApiResponse<Map<String, dynamic>>.fromJson(
+        response,
+        (json) => json,
+      );
+      if (!apiResp.isSuccess || apiResp.data == null) {
+        throw PanelFallbackException(
+          'Failed to list containers',
+          statusCode: apiResp.code,
+        );
+      }
+      final Object? raw = apiResp.data;
+      final List<dynamic> rawList;
+      if (raw is List) {
+        rawList = raw;
+      } else if (raw is Map && raw['items'] is List) {
+        rawList = raw['items'] as List<dynamic>;
+      } else {
+        rawList = <dynamic>[];
+      }
+      final dtos = rawList
+          .map((e) => ContainerDto.fromJson(e as Map<String, dynamic>))
+          .toList();
+      return dtos.map((dto) => dto.toDomain()).toList();
+    } on PanelFallbackException {
+      rethrow;
+    } catch (e) {
+      throw PanelFallbackException('API unreachable', original: e);
+    }
+  }
+
+  /// Start / stop / restart / pause / unpause a container.
+  ///
+  /// POST /api/v2/containers/operate  ->  {name, operation}
+  Future<void> operateContainer(String name, String operation) async {
+    try {
+      final response = await _client.post(
+        '/api/v2/containers/operate',
+        data: {'name': name, 'operation': operation},
+      );
+      final apiResp = ApiResponse.fromJson(response, (_) => null);
+      if (!apiResp.isSuccess) {
+        throw PanelFallbackException(
+          'Failed to $operation $name',
+          statusCode: apiResp.code,
+        );
+      }
+    } on PanelFallbackException {
+      rethrow;
+    } catch (e) {
+      throw PanelFallbackException('API unreachable', original: e);
+    }
+  }
+
+  Future<void> startContainer(String name) => operateContainer(name, 'start');
+
+  Future<void> stopContainer(String name) => operateContainer(name, 'stop');
+
+  Future<void> restartContainer(String name) =>
+      operateContainer(name, 'restart');
+
+  Future<void> pauseContainer(String name) => operateContainer(name, 'pause');
+
+  Future<void> unpauseContainer(String name) =>
+      operateContainer(name, 'unpause');
+
+  /// Remove a container.
+  ///
+  /// POST /api/v2/containers/delete  ->  {names: [name], force}
+  Future<void> removeContainer(String name, {bool force = true}) async {
+    try {
+      final response = await _client.post(
+        '/api/v2/containers/delete',
+        data: {
+          'names': [name],
+          'force': force,
+        },
+      );
+      final apiResp = ApiResponse.fromJson(response, (_) => null);
+      if (!apiResp.isSuccess) {
+        throw PanelFallbackException(
+          'Failed to remove $name',
+          statusCode: apiResp.code,
+        );
+      }
+    } on PanelFallbackException {
+      rethrow;
+    } catch (e) {
+      throw PanelFallbackException('API unreachable', original: e);
+    }
+  }
+
+  /// Inspect a container.
+  ///
+  /// POST /api/v2/containers/inspect  ->  data (raw inspect object)
+  Future<ContainerInspect> inspectContainer(String name) async {
+    try {
+      final response = await _client.post(
+        '/api/v2/containers/inspect',
+        data: {'name': name},
+      );
+      final apiResp = ApiResponse<Map<String, dynamic>>.fromJson(
+        response,
+        (json) => json,
+      );
+      if (!apiResp.isSuccess || apiResp.data == null) {
+        throw PanelFallbackException(
+          'Failed to inspect $name',
+          statusCode: apiResp.code,
+        );
+      }
+      return ContainerInspect(apiResp.data!);
+    } on PanelFallbackException {
+      rethrow;
+    } catch (e) {
+      throw PanelFallbackException('API unreachable', original: e);
+    }
+  }
+
+  /// Container logs.
+  ///
+  /// 1Panel exposes logs via SSE (`/api/v2/containers/search/log`). That path
+  /// is not wired through this Dio adapter, so we signal the fallback layer to
+  /// stream logs over SSH instead.
+  Stream<String> containerLogs(String name, {int tail = 200, bool follow = false}) {
+    throw const PanelFallbackException(
+      'containerLogs not available through 1Panel API',
+    );
   }
 }

@@ -12,6 +12,7 @@ import 'package:lanxi/core/source/server_source.dart';
 import 'package:lanxi/models/compress_result.dart';
 import 'package:lanxi/models/domain/file_item.dart';
 import 'package:lanxi/models/domain/system_stats.dart';
+import 'package:lanxi/models/dto/container_dto.dart';
 
 import 'one_panel_server_source.dart';
 
@@ -101,6 +102,96 @@ class FallbackServerSource implements ServerSource {
     } on PanelFallbackException catch (e) {
       appLogger.w('Fallback: API createFile failed — using SSH ($e)');
       await ssh.createFile(path, isDir: isDir, content: content);
+    }
+  }
+
+  @override
+  Future<List<ContainerDomain>> listContainers() async {
+    try {
+      return await panel.listContainers();
+    } on PanelFallbackException catch (e) {
+      appLogger.w('Fallback: API listContainers failed — using SSH ($e)');
+      return await ssh.listContainers();
+    }
+  }
+
+  @override
+  Future<void> startContainer(String name) async {
+    try {
+      await panel.startContainer(name);
+    } on PanelFallbackException catch (e) {
+      appLogger.w('Fallback: API startContainer failed — using SSH ($e)');
+      await ssh.startContainer(name);
+    }
+  }
+
+  @override
+  Future<void> stopContainer(String name) async {
+    try {
+      await panel.stopContainer(name);
+    } on PanelFallbackException catch (e) {
+      appLogger.w('Fallback: API stopContainer failed — using SSH ($e)');
+      await ssh.stopContainer(name);
+    }
+  }
+
+  @override
+  Future<void> restartContainer(String name) async {
+    try {
+      await panel.restartContainer(name);
+    } on PanelFallbackException catch (e) {
+      appLogger.w('Fallback: API restartContainer failed — using SSH ($e)');
+      await ssh.restartContainer(name);
+    }
+  }
+
+  @override
+  Future<void> pauseContainer(String name) async {
+    try {
+      await panel.pauseContainer(name);
+    } on PanelFallbackException catch (e) {
+      appLogger.w('Fallback: API pauseContainer failed — using SSH ($e)');
+      await ssh.pauseContainer(name);
+    }
+  }
+
+  @override
+  Future<void> unpauseContainer(String name) async {
+    try {
+      await panel.unpauseContainer(name);
+    } on PanelFallbackException catch (e) {
+      appLogger.w('Fallback: API unpauseContainer failed — using SSH ($e)');
+      await ssh.unpauseContainer(name);
+    }
+  }
+
+  @override
+  Future<void> removeContainer(String name, {bool force = true}) async {
+    try {
+      await panel.removeContainer(name, force: force);
+    } on PanelFallbackException catch (e) {
+      appLogger.w('Fallback: API removeContainer failed — using SSH ($e)');
+      await ssh.removeContainer(name, force: force);
+    }
+  }
+
+  @override
+  Future<ContainerInspect> inspectContainer(String name) async {
+    try {
+      return await panel.inspectContainer(name);
+    } on PanelFallbackException catch (e) {
+      appLogger.w('Fallback: API inspectContainer failed — using SSH ($e)');
+      return await ssh.inspectContainer(name);
+    }
+  }
+
+  @override
+  Stream<String> containerLogs(String name, {int tail = 200, bool follow = false}) {
+    try {
+      return panel.containerLogs(name, tail: tail, follow: follow);
+    } on PanelFallbackException catch (e) {
+      appLogger.w('Fallback: API containerLogs failed — using SSH ($e)');
+      return ssh.containerLogs(name, tail: tail, follow: follow);
     }
   }
 

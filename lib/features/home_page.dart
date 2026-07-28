@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lanxi/features/connection/app_state.dart';
 import 'package:lanxi/features/overview/overview_page.dart';
 import 'package:lanxi/features/files/files_page.dart';
+import 'package:lanxi/features/docker/docker_page.dart';
 import 'package:lanxi/features/tools/tools_page.dart';
 
 /// Main app shell with bottom navigation.
@@ -29,6 +30,7 @@ class _HomePageState extends State<HomePage> {
     final pages = <Widget>[
       OverviewPage(service: service),
       FilesPage(service: service),
+      DockerPage(service: service),
       ToolsPage(service: service),
     ];
 
@@ -79,6 +81,11 @@ class _HomePageState extends State<HomePage> {
             label: '文件',
           ),
           NavigationDestination(
+            icon: Icon(Icons.view_in_ar_outlined),
+            selectedIcon: Icon(Icons.view_in_ar),
+            label: '容器',
+          ),
+          NavigationDestination(
             icon: Icon(Icons.build_outlined),
             selectedIcon: Icon(Icons.build),
             label: '工具',
@@ -95,6 +102,8 @@ class _HomePageState extends State<HomePage> {
       case 1:
         return '文件';
       case 2:
+        return '容器';
+      case 3:
         return '工具';
       default:
         return 'Lanxi';

@@ -9,6 +9,7 @@ import 'package:lanxi/core/source/server_source.dart';
 import 'package:lanxi/models/compress_result.dart';
 import 'package:lanxi/models/domain/file_item.dart';
 import 'package:lanxi/models/domain/system_stats.dart';
+import 'package:lanxi/models/dto/container_dto.dart';
 import 'package:mocktail/mocktail.dart';
 
 import '../../../helpers/fake_interactive_session.dart';
@@ -293,6 +294,117 @@ void main() {
             isDir: false,
             content: 'c',
           )).called(1);
+    });
+  });
+
+  group('docker operations', () {
+    final container = ContainerDomain(
+      id: 'abc',
+      name: 'web',
+      image: 'nginx',
+      status: 'Up',
+      state: 'running',
+    );
+
+    test('listContainers delegates to panel', () async {
+      when(() => mockPanel.listContainers())
+          .thenAnswer((_) async => [container]);
+
+      final items = await source.listContainers();
+
+      expect(items.single.name, 'web');
+      verify(() => mockPanel.listContainers()).called(1);
+      verifyNever(() => mockSsh.listContainers());
+    });
+
+    test('listContainers falls back to SSH', () async {
+      when(() => mockPanel.listContainers())
+          .thenThrow(const PanelFallbackException('no'));
+      when(() => mockSsh.listContainers()).thenAnswer((_) async => [container]);
+
+      final items = await source.listContainers();
+
+      expect(items.single.name, 'web');
+      verify(() => mockSsh.listContainers()).called(1);
+    });
+
+    test('startContainer delegates to panel', () async {
+      when(() => mockPanel.startContainer(any())).thenAnswer((_) async {});
+
+      await source.startContainer('web');
+
+      verify(() => mockPanel.startContainer('web')).called(1);
+      verifyNever(() => mockSsh.startContainer(any()));
+    });
+
+    test('stopContainer falls back to SSH', () async {
+      when(() => mockPanel.stopContainer(any()))
+          .thenThrow(const PanelFallbackException('no'));
+      when(() => mockSsh.stopContainer(any())).thenAnswer((_) async {});
+
+      await source.stopContainer('web');
+
+      verify(() => mockSsh.stopContainer('web')).called(1);
+    });
+
+    test('restartContainer delegates to panel', () async {
+      when(() => mockPanel.restartContainer(any())).thenAnswer((_) async {});
+
+      await source.restartContainer('web');
+
+      verify(() => mockPanel.restartContainer('web')).called(1);
+    });
+
+    test('pauseContainer falls back to SSH', () async {
+      when(() => mockPanel.pauseContainer(any()))
+          .thenThrow(const PanelFallbackException('no'));
+      when(() => mockSsh.pauseContainer(any())).thenAnswer((_) async {});
+
+      await source.pauseContainer('web');
+
+      verify(() => mockSsh.pauseContainer('web')).called(1);
+    });
+
+    test('unpauseContainer delegates to panel', () async {
+      when(() => mockPanel.unpauseContainer(any())).thenAnswer((_) async {});
+
+      await source.unpauseContainer('web');
+
+      verify(() => mockPanel.unpauseContainer('web')).called(1);
+    });
+
+    test('removeContainer falls back to SSH', () async {
+      when(() => mockPanel.removeContainer(any(), force: any(named: 'force')))
+          .thenThrow(const PanelFallbackException('no'));
+      when(() => mockSsh.removeContainer(any(), force: any(named: 'force')))
+          .thenAnswer((_) async {});
+
+      await source.removeContainer('web');
+
+      verify(() => mockSsh.removeContainer('web', force: true)).called(1);
+    });
+
+    test('inspectContainer delegates to panel', () async {
+      when(() => mockPanel.inspectContainer(any()))
+          .thenAnswer((_) async => ContainerInspect({}));
+
+      await source.inspectContainer('web');
+
+      verify(() => mockPanel.inspectContainer('web')).called(1);
+    });
+
+    test('containerLogs falls back to SSH (panel throws)', () async {
+      when(() => mockPanel.containerLogs(any(),
+              tail: any(named: 'tail'), follow: any(named: 'follow')))
+          .thenThrow(const PanelFallbackException('no SSE'));
+      when(() => mockSsh.containerLogs(any(),
+              tail: any(named: 'tail'), follow: any(named: 'follow')))
+          .thenAnswer((_) => Stream.value('line'));
+
+      final lines = await source.containerLogs('web').toList();
+
+      expect(lines, ['line']);
+      verify(() => mockSsh.containerLogs('web')).called(1);
     });
   });
 }

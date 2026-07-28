@@ -27,6 +27,7 @@ import 'package:lanxi/core/source/ssh_interactive_session.dart';
 import 'package:lanxi/models/compress_result.dart';
 import 'package:lanxi/models/domain/file_item.dart';
 import 'package:lanxi/models/domain/system_stats.dart';
+import 'package:lanxi/models/dto/container_dto.dart';
 
 class SshServerSource implements ServerSource {
   final SshSessionPool _pool;
@@ -190,6 +191,81 @@ class SshServerSource implements ServerSource {
       _pool.releaseIdle();
       _client = null;
     }
+  }
+
+  // ── Docker ──
+
+  @override
+  Future<List<ContainerDomain>> listContainers() async {
+    final out = await _exec("docker ps --all --format '{{json .}}'");
+    return _parseContainers(out);
+  }
+
+  @override
+  Future<void> startContainer(String name) async {
+    await _exec("docker start '$name'");
+  }
+
+  @override
+  Future<void> stopContainer(String name) async {
+    await _exec("docker stop '$name'");
+  }
+
+  @override
+  Future<void> restartContainer(String name) async {
+    await _exec("docker restart '$name'");
+  }
+
+  @override
+  Future<void> pauseContainer(String name) async {
+    await _exec("docker pause '$name'");
+  }
+
+  @override
+  Future<void> unpauseContainer(String name) async {
+    await _exec("docker unpause '$name'");
+  }
+
+  @override
+  Future<void> removeContainer(String name, {bool force = true}) async {
+    final f = force ? '-f' : '';
+    await _exec("docker rm $f '$name'");
+  }
+
+  @override
+  Future<ContainerInspect> inspectContainer(String name) async {
+    final out = await _exec("docker inspect '$name'");
+    if (out.trim().isEmpty) return ContainerInspect(<String, dynamic>{});
+    try {
+      final decoded = jsonDecode(out) as List<dynamic>;
+      final first = decoded.isNotEmpty ? decoded.first : <String, dynamic>{};
+      return ContainerInspect(first as Map<String, dynamic>);
+    } catch (e) {
+      appLogger.w('Failed to parse docker inspect for $name: $e');
+      return ContainerInspect(<String, dynamic>{});
+    }
+  }
+
+  @override
+  Stream<String> containerLogs(String name, {int tail = 200, bool follow = false}) {
+    final f = follow ? '-f' : '';
+    return execStream("docker logs $f --tail $tail '$name'");
+  }
+
+  List<ContainerDomain> _parseContainers(String jsonl) {
+    if (jsonl.trim().isEmpty) return const [];
+    final out = <ContainerDomain>[];
+    for (final line in jsonl.split('\n')) {
+      final trimmed = line.trim();
+      if (trimmed.isEmpty) continue;
+      try {
+        final j = jsonDecode(trimmed) as Map<String, dynamic>;
+        out.add(ContainerDomain.fromCliJson(j));
+      } catch (e) {
+        appLogger.w('Skipping unparseable docker ps line: $e');
+      }
+    }
+    return out;
   }
 
   // ── Parsing helpers ──

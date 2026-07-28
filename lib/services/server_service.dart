@@ -10,6 +10,7 @@ import 'package:lanxi/core/source/server_source.dart';
 import 'package:lanxi/models/compress_result.dart';
 import 'package:lanxi/models/domain/file_item.dart';
 import 'package:lanxi/models/domain/system_stats.dart';
+import 'package:lanxi/models/dto/container_dto.dart';
 
 class ServerService {
   final ServerSource _source;
@@ -40,6 +41,29 @@ class ServerService {
 
   Future<CompressResult> compress(List<String> src, String dest) =>
       _source.compress(src, dest);
+
+  // ── Docker ──
+
+  Future<List<ContainerDomain>> listContainers() => _source.listContainers();
+
+  Future<void> startContainer(String name) => _source.startContainer(name);
+
+  Future<void> stopContainer(String name) => _source.stopContainer(name);
+
+  Future<void> restartContainer(String name) => _source.restartContainer(name);
+
+  Future<void> pauseContainer(String name) => _source.pauseContainer(name);
+
+  Future<void> unpauseContainer(String name) => _source.unpauseContainer(name);
+
+  Future<void> removeContainer(String name, {bool force = true}) =>
+      _source.removeContainer(name, force: force);
+
+  Future<ContainerInspect> inspectContainer(String name) =>
+      _source.inspectContainer(name);
+
+  Stream<String> containerLogs(String name, {int tail = 200, bool follow = false}) =>
+      _source.containerLogs(name, tail: tail, follow: follow);
 
   // ── System Configuration ──
 

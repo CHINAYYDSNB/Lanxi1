@@ -12,6 +12,7 @@ import 'package:lanxi/core/source/server_source.dart';
 import 'package:lanxi/models/compress_result.dart';
 import 'package:lanxi/models/domain/file_item.dart';
 import 'package:lanxi/models/domain/system_stats.dart';
+import 'package:lanxi/models/dto/container_dto.dart';
 
 import 'one_panel_adapter.dart';
 
@@ -48,6 +49,41 @@ class OnePanelServerSource implements ServerSource {
   @override
   Future<void> createFile(String path, {required bool isDir, String? content}) =>
       _adapter.createFile(path, isDir: isDir, content: content);
+
+  @override
+  Future<List<ContainerDomain>> listContainers() => _adapter.listContainers();
+
+  @override
+  Future<void> startContainer(String name) => _adapter.startContainer(name);
+
+  @override
+  Future<void> stopContainer(String name) => _adapter.stopContainer(name);
+
+  @override
+  Future<void> restartContainer(String name) => _adapter.restartContainer(name);
+
+  @override
+  Future<void> pauseContainer(String name) => _adapter.pauseContainer(name);
+
+  @override
+  Future<void> unpauseContainer(String name) => _adapter.unpauseContainer(name);
+
+  @override
+  Future<void> removeContainer(String name, {bool force = true}) =>
+      _adapter.removeContainer(name, force: force);
+
+  @override
+  Future<ContainerInspect> inspectContainer(String name) =>
+      _adapter.inspectContainer(name);
+
+  @override
+  Stream<String> containerLogs(String name, {int tail = 200, bool follow = false}) {
+    // 1Panel SSE logs are not wired through the API adapter — signal the
+    // fallback layer to stream logs over SSH.
+    throw const PanelFallbackException(
+      'containerLogs not available through 1Panel API',
+    );
+  }
 
   @override
   Future<void> setNtp(String server) {

@@ -182,4 +182,79 @@ void main() {
       verify(() => mockClient.execute(any())).called(1);
     });
   });
+
+  group('docker operations', () {
+    test('listContainers parses docker ps JSONL', () async {
+      const output = '''
+{"ID":"abc","Names":"web","Image":"nginx","Status":"Up 2 hours","State":"running","CreatedAt":"2026-07-27"}
+{"ID":"def","Names":"db","Image":"postgres","Status":"Exited (0) 1 hour ago","State":"exited","CreatedAt":"2026-07-26"}
+''';
+      when(() => mockClient.execute(any()))
+          .thenAnswer((_) => _sessionReturning(output));
+
+      final containers = await source.listContainers();
+
+      expect(containers.length, 2);
+      expect(containers[0].name, 'web');
+      expect(containers[0].isRunning, true);
+      expect(containers[1].name, 'db');
+      expect(containers[1].isStopped, true);
+      verify(() => mockClient.execute(any())).called(1);
+    });
+
+    test('startContainer runs docker start', () async {
+      when(() => mockClient.execute(any()))
+          .thenAnswer((_) => _sessionReturning(''));
+
+      await source.startContainer('web');
+
+      final cmd = verify(() => mockClient.execute(captureAny())).captured.single
+          as String;
+      expect(cmd, "docker start 'web'");
+    });
+
+    test('stopContainer runs docker stop', () async {
+      when(() => mockClient.execute(any()))
+          .thenAnswer((_) => _sessionReturning(''));
+
+      await source.stopContainer('web');
+
+      final cmd = verify(() => mockClient.execute(captureAny())).captured.single
+          as String;
+      expect(cmd, "docker stop 'web'");
+    });
+
+    test('removeContainer runs docker rm -f', () async {
+      when(() => mockClient.execute(any()))
+          .thenAnswer((_) => _sessionReturning(''));
+
+      await source.removeContainer('web');
+
+      final cmd = verify(() => mockClient.execute(captureAny())).captured.single
+          as String;
+      expect(cmd, "docker rm -f 'web'");
+    });
+
+    test('inspectContainer parses docker inspect array', () async {
+      const output = '[{"Id":"abc","Name":"/web","Config":{"Image":"nginx"}}]';
+      when(() => mockClient.execute(any()))
+          .thenAnswer((_) => _sessionReturning(output));
+
+      final inspect = await source.inspectContainer('web');
+
+      expect(inspect.id, 'abc');
+      expect(inspect.name, 'web');
+      expect(inspect.image, 'nginx');
+    });
+
+    test('containerLogs streams via execStream', () async {
+      when(() => mockClient.execute(any()))
+          .thenAnswer((_) => _sessionReturning('log line 1\nlog line 2\n'));
+
+      final lines = await source.containerLogs('web', tail: 50).toList();
+
+      expect(lines.join(''), contains('log line 1'));
+      verify(() => mockClient.execute(any())).called(1);
+    });
+  });
 }

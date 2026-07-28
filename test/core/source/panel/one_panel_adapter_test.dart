@@ -246,4 +246,109 @@ void main() {
           )).called(1);
     });
   });
+
+  group('listContainers', () {
+    test('parses data.items into domain containers', () async {
+      when(() => mockClient.post(
+            '/api/v2/containers/search',
+            data: any(named: 'data'),
+          )).thenAnswer((_) async => <String, dynamic>{
+            'code': 200,
+            'message': 'success',
+            'data': <String, dynamic>{
+              'items': <dynamic>[
+                <String, dynamic>{
+                  'containerID': 'abc123',
+                  'name': 'web',
+                  'image': 'nginx:latest',
+                  'state': 'running',
+                  'status': 'Up 2 hours',
+                  'createdAt': '2026-07-27',
+                  'ports': <dynamic>['0.0.0.0:8080->80/tcp'],
+                },
+              ],
+            },
+          });
+
+      final containers = await adapter.listContainers();
+
+      expect(containers.length, 1);
+      expect(containers.first.name, 'web');
+      expect(containers.first.state, 'running');
+      expect(containers.first.ports, ['0.0.0.0:8080->80/tcp']);
+      expect(containers.first.isRunning, true);
+    });
+
+    test('throws PanelFallbackException on API error', () async {
+      when(() => mockClient.post(
+            '/api/v2/containers/search',
+            data: any(named: 'data'),
+          )).thenAnswer((_) async => {'code': 500, 'message': 'boom'});
+
+      expect(
+        () => adapter.listContainers(),
+        throwsA(isA<PanelFallbackException>()),
+      );
+    });
+  });
+
+  group('container operations', () {
+    test('operate posts name + operation', () async {
+      when(() => mockClient.post(
+            any(),
+            data: any(named: 'data'),
+          )).thenAnswer((_) async => {'code': 200, 'message': 'success'});
+
+      await adapter.startContainer('web');
+
+      verify(() => mockClient.post(
+            '/api/v2/containers/operate',
+            data: {'name': 'web', 'operation': 'start'},
+          )).called(1);
+    });
+
+    test('removeContainer posts names array + force', () async {
+      when(() => mockClient.post(
+            any(),
+            data: any(named: 'data'),
+          )).thenAnswer((_) async => {'code': 200, 'message': 'success'});
+
+      await adapter.removeContainer('web', force: true);
+
+      verify(() => mockClient.post(
+            '/api/v2/containers/delete',
+            data: {
+              'names': ['web'],
+              'force': true,
+            },
+          )).called(1);
+    });
+
+    test('inspectContainer returns ContainerInspect', () async {
+      when(() => mockClient.post(
+            any(),
+            data: any(named: 'data'),
+          )).thenAnswer((_) async => <String, dynamic>{
+            'code': 200,
+            'message': 'success',
+            'data': <String, dynamic>{
+              'Id': 'abc',
+              'Name': '/web',
+              'Config': <String, dynamic>{'Image': 'nginx'},
+            },
+          });
+
+      final inspect = await adapter.inspectContainer('web');
+
+      expect(inspect.id, 'abc');
+      expect(inspect.name, 'web');
+    });
+
+    test('containerLogs throws PanelFallbackException (SSE not wired)', () {
+      expect(
+        () => adapter.containerLogs('web'),
+        throwsA(isA<PanelFallbackException>()),
+      );
+    });
+  });
 }

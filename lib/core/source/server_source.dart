@@ -3,6 +3,7 @@ import 'package:lanxi/core/source/panel_detector.dart';
 import 'package:lanxi/models/compress_result.dart';
 import 'package:lanxi/models/domain/file_item.dart';
 import 'package:lanxi/models/domain/system_stats.dart';
+import 'package:lanxi/models/dto/container_dto.dart';
 
 /// Abstract interface for all server operations.
 ///
@@ -45,6 +46,35 @@ abstract class ServerSource {
 
   /// Change the root password.
   Future<void> changeRootPassword(String newPass);
+
+  // ── Docker ──
+
+  /// List all containers (running + stopped).
+  Future<List<ContainerDomain>> listContainers();
+
+  /// Start a stopped container by [name].
+  Future<void> startContainer(String name);
+
+  /// Stop a running container by [name].
+  Future<void> stopContainer(String name);
+
+  /// Restart a container by [name].
+  Future<void> restartContainer(String name);
+
+  /// Pause a running container by [name].
+  Future<void> pauseContainer(String name);
+
+  /// Unpause a paused container by [name].
+  Future<void> unpauseContainer(String name);
+
+  /// Remove a container by [name].
+  Future<void> removeContainer(String name, {bool force = true});
+
+  /// Return detailed inspection data for [name].
+  Future<ContainerInspect> inspectContainer(String name);
+
+  /// Stream a container's logs.
+  Stream<String> containerLogs(String name, {int tail = 200, bool follow = false});
 
   // ── Streaming / Detection ──
 

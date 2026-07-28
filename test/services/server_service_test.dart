@@ -7,6 +7,7 @@ import 'package:lanxi/core/source/server_source.dart';
 import 'package:lanxi/models/compress_result.dart';
 import 'package:lanxi/models/domain/file_item.dart';
 import 'package:lanxi/models/domain/system_stats.dart';
+import 'package:lanxi/models/dto/container_dto.dart';
 import 'package:lanxi/services/server_service.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -188,6 +189,94 @@ void main() {
             isDir: false,
             content: 'c',
           )).called(1);
+    });
+  });
+
+  group('docker operations', () {
+    final container = ContainerDomain(
+      id: 'abc',
+      name: 'web',
+      image: 'nginx',
+      status: 'Up',
+      state: 'running',
+    );
+
+    test('listContainers delegates to source', () async {
+      when(() => mockSource.listContainers()).thenAnswer((_) async => [container]);
+
+      final items = await service.listContainers();
+
+      expect(items.single.name, 'web');
+      verify(() => mockSource.listContainers()).called(1);
+    });
+
+    test('startContainer delegates to source', () async {
+      when(() => mockSource.startContainer(any())).thenAnswer((_) async {});
+
+      await service.startContainer('web');
+
+      verify(() => mockSource.startContainer('web')).called(1);
+    });
+
+    test('stopContainer delegates to source', () async {
+      when(() => mockSource.stopContainer(any())).thenAnswer((_) async {});
+
+      await service.stopContainer('web');
+
+      verify(() => mockSource.stopContainer('web')).called(1);
+    });
+
+    test('restartContainer delegates to source', () async {
+      when(() => mockSource.restartContainer(any())).thenAnswer((_) async {});
+
+      await service.restartContainer('web');
+
+      verify(() => mockSource.restartContainer('web')).called(1);
+    });
+
+    test('pauseContainer delegates to source', () async {
+      when(() => mockSource.pauseContainer(any())).thenAnswer((_) async {});
+
+      await service.pauseContainer('web');
+
+      verify(() => mockSource.pauseContainer('web')).called(1);
+    });
+
+    test('unpauseContainer delegates to source', () async {
+      when(() => mockSource.unpauseContainer(any())).thenAnswer((_) async {});
+
+      await service.unpauseContainer('web');
+
+      verify(() => mockSource.unpauseContainer('web')).called(1);
+    });
+
+    test('removeContainer delegates to source', () async {
+      when(() => mockSource.removeContainer(any(), force: any(named: 'force')))
+          .thenAnswer((_) async {});
+
+      await service.removeContainer('web');
+
+      verify(() => mockSource.removeContainer('web', force: true)).called(1);
+    });
+
+    test('inspectContainer delegates to source', () async {
+      when(() => mockSource.inspectContainer(any()))
+          .thenAnswer((_) async => ContainerInspect({}));
+
+      await service.inspectContainer('web');
+
+      verify(() => mockSource.inspectContainer('web')).called(1);
+    });
+
+    test('containerLogs delegates to source', () {
+      when(() => mockSource.containerLogs(any(),
+              tail: any(named: 'tail'), follow: any(named: 'follow')))
+          .thenAnswer((_) => Stream.value('line'));
+
+      final stream = service.containerLogs('web');
+
+      expect(stream, isA<Stream<String>>());
+      verify(() => mockSource.containerLogs('web')).called(1);
     });
   });
 }
