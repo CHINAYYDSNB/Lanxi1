@@ -71,6 +71,31 @@ void main() {
     });
   });
 
+  group('watchHostStats', () {
+    test('delegates to panel stream when panel succeeds', () async {
+      when(() => mockPanel.watchHostStats())
+          .thenAnswer((_) => Stream.value(_snapshot()));
+
+      final result = await source.watchHostStats().first;
+
+      expect(result.cpuPercent, 10);
+      verify(() => mockPanel.watchHostStats()).called(1);
+      verifyNever(() => mockSsh.watchHostStats());
+    });
+
+    test('falls back to SSH stream when panel throws', () async {
+      when(() => mockPanel.watchHostStats())
+          .thenThrow(const PanelFallbackException('API error'));
+      when(() => mockSsh.watchHostStats())
+          .thenAnswer((_) => Stream.value(_snapshot()));
+
+      final result = await source.watchHostStats().first;
+
+      expect(result.cpuPercent, 10);
+      verify(() => mockSsh.watchHostStats()).called(1);
+    });
+  });
+
   group('listDir', () {
     test('returns panel result when panel succeeds', () async {
       when(() => mockPanel.listDir(any())).thenAnswer(

@@ -1,5 +1,7 @@
 // ignore_for_file: require_trailing_commas
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:lanxi/core/logger.dart';
 import 'package:lanxi/models/domain/system_stats.dart';
@@ -8,8 +10,9 @@ import 'package:lanxi/widgets/app_card.dart';
 
 /// System monitoring dashboard.
 ///
-/// Shows CPU, memory, disk usage and system info.
-/// Data is fetched via [ServerService.getSystemInfo].
+/// Shows CPU, memory, disk usage and system info, updated live via
+/// [ServerService.watchHostStats] (SSH pushes; panel polls behind the scene,
+/// so the UI never polls the API itself).
 class OverviewPage extends StatefulWidget {
   final ServerService service;
 
@@ -23,33 +26,63 @@ class _OverviewPageState extends State<OverviewPage> {
   SystemStats? _stats;
   String? _error;
   bool _loading = true;
+  StreamSubscription<SystemStats>? _sub;
 
   @override
   void initState() {
     super.initState();
-    _refresh();
+    _subscribe();
   }
 
+  void _subscribe() {
+    _sub?.cancel();
+    _loading = true;
+    _error = null;
+    if (mounted) setState(() {});
+    _sub = widget.service.watchHostStats().listen(
+      (stats) {
+        if (!mounted) return;
+        setState(() {
+          _stats = stats;
+          _error = null;
+          _loading = false;
+        });
+      },
+      onError: (Object e) {
+        if (!mounted) return;
+        // If we already have a snapshot, keep showing it; otherwise surface
+        // the error so the user can retry the live stream.
+        if (_stats == null) {
+          setState(() {
+            _error = '获取系统信息失败：$e';
+            _loading = false;
+          });
+        } else {
+          appLogger.w('Overview stats stream error (keeping last): $e');
+        }
+      },
+    );
+  }
+
+  /// Manual pull-to-refresh: force one immediate fetch (the live stream keeps
+  /// updating on its own).
   Future<void> _refresh() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
     try {
       final stats = await widget.service.getSystemInfo();
       if (!mounted) return;
       setState(() {
         _stats = stats;
-        _loading = false;
+        _error = null;
       });
     } catch (e) {
-      appLogger.e('Failed to fetch system info', e);
-      if (!mounted) return;
-      setState(() {
-        _error = '获取系统信息失败：$e';
-        _loading = false;
-      });
+      appLogger.w('Manual overview refresh failed: $e');
     }
+  }
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    super.dispose();
   }
 
   @override
@@ -70,7 +103,7 @@ class _OverviewPageState extends State<OverviewPage> {
               Text(_error!, textAlign: TextAlign.center),
               const SizedBox(height: 16),
               FilledButton.tonalIcon(
-                onPressed: _refresh,
+                onPressed: _subscribe,
                 icon: const Icon(Icons.refresh),
                 label: const Text('重试'),
               ),

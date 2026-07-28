@@ -36,6 +36,16 @@ class FallbackServerSource implements ServerSource {
   }
 
   @override
+  Stream<SystemStats> watchHostStats() {
+    try {
+      return panel.watchHostStats();
+    } on PanelFallbackException catch (e) {
+      appLogger.w('Fallback: API watchHostStats failed — using SSH ($e)');
+      return ssh.watchHostStats();
+    }
+  }
+
+  @override
   Future<List<FileItem>> listDir(String path) async {
     try {
       return await panel.listDir(path);

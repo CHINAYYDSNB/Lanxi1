@@ -44,6 +44,16 @@ void main() {
     verify(() => mockAdapter.getHostInfo()).called(1);
   });
 
+  test('watchHostStats emits first snapshot from adapter', () async {
+    when(() => mockAdapter.getHostInfo())
+        .thenAnswer((_) async => _fakeSnapshot());
+
+    final stats = await source.watchHostStats().first;
+
+    expect(stats.cpuPercent, 10.0);
+    verify(() => mockAdapter.getHostInfo()).called(1);
+  });
+
   test('listDir delegates to adapter', () async {
     when(() => mockAdapter.listDir(any())).thenAnswer((_) async => []);
 

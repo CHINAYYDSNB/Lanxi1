@@ -47,6 +47,18 @@ void main() {
     });
   });
 
+  group('watchHostStats', () {
+    test('delegates to source stream', () {
+      when(() => mockSource.watchHostStats())
+          .thenAnswer((_) => Stream.value(_snapshot()));
+
+      final stream = service.watchHostStats();
+
+      expect(stream, isA<Stream<SystemStats>>());
+      verify(() => mockSource.watchHostStats()).called(1);
+    });
+  });
+
   group('listDir', () {
     test('delegates to source', () async {
       when(() => mockSource.listDir(any())).thenAnswer((_) async => [

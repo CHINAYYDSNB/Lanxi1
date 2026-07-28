@@ -99,6 +99,27 @@ class SshServerSource implements ServerSource {
   }
 
   @override
+  Stream<SystemStats> watchHostStats() async* {
+    // Ensure a pooled connection exists so SshSessionPool.watch can stream.
+    await _getClient();
+    const delimiter = '__LANXI_DISK__';
+    // A single combined command keeps the stream cheap: the trailing `sleep 2`
+    // throttles SshSessionPool's re-execute loop to ~2s instead of a busy loop.
+    const cmd =
+        "top -bn1 | head -5; free -m; echo '$delimiter'; df -Pk; sleep 2";
+    await for (final raw in _pool.watch(_credentials.poolKey, cmd)) {
+      final parts = raw.split(delimiter);
+      final infoRaw = parts.isNotEmpty ? parts[0] : raw;
+      final diskRaw = parts.length > 1 ? parts[1] : '';
+      try {
+        yield _parseSystemInfo(infoRaw, diskRaw);
+      } on Object catch (e) {
+        appLogger.w('watchHostStats parse failed: $e');
+      }
+    }
+  }
+
+  @override
   Future<InteractiveSession> openShell() async {
     if (kIsWeb) {
       throw const PlatformNotSupportedException(

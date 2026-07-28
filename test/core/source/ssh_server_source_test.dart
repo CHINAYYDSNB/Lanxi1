@@ -123,6 +123,38 @@ void main() {
     });
   });
 
+  group('watchHostStats', () {
+    test('streams parsed stats from combined monitor command', () async {
+      const combined = '''
+%Cpu(s):  45.2 us,  10.0 sy,  0.0 ni, 44.8 id
+Mem:   1986  512  1023    0  450  923
+load average: 1.23
+__LANXI_DISK__
+Filesystem     1024-blocks      Used Available Capacity Mounted on
+/dev/sda1      51200000  25600000  25600000      50% /
+tmpfs            2048000       100   2047900       1% /dev/shm
+overlay         51200000  25600000  25600000      50% /
+''';
+      when(() => mockPool.watch(any(), any()))
+          .thenAnswer((_) => Stream.value(combined));
+
+      final stats = await source.watchHostStats().first;
+
+      expect(stats.cpuPercent, closeTo(45.2, 0.01));
+      expect(stats.memTotalMb, 1986);
+      expect(stats.memUsedMb, 512);
+      expect(stats.loadAvg, closeTo(1.23, 0.001));
+      // tmpfs excluded; /dev/sda1 and overlay kept
+      expect(stats.disks.length, 2);
+      expect(stats.source, SystemStatsSource.ssh);
+      final captured =
+          verify(() => mockPool.watch(captureAny(), captureAny())).captured;
+      final cmd = captured[1] as String;
+      expect(cmd, contains('__LANXI_DISK__'));
+      expect(cmd, contains('sleep 2'));
+    });
+  });
+
   group('openShell', () {
     test('opens a PTY shell through the client', () async {
       when(() => mockClient.shell(pty: any(named: 'pty')))

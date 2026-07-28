@@ -36,8 +36,15 @@ abstract class ServerSource {
 
   // ── Monitoring ──
 
-  /// Read current CPU, memory, and disk stats.
+  /// Read current CPU, memory, and disk stats (one-shot).
   Future<SystemStats> getSystemInfo();
+
+  /// Stream live CPU, memory, and disk stats.
+  ///
+  /// SSH sources push updates via [SshSessionPool.watch]; panel sources poll
+  /// the dashboard API on a fixed interval. Either way the UI only binds to
+  /// this stream — it never polls the API itself.
+  Stream<SystemStats> watchHostStats();
 
   // ── System Configuration ──
 

@@ -21,6 +21,10 @@ class ServerService {
 
   Future<SystemStats> getSystemInfo() => _source.getSystemInfo();
 
+  /// Stream live host stats (SSH pushes, panel polls — both hidden behind the
+  /// source; the UI simply binds to this stream).
+  Stream<SystemStats> watchHostStats() => _source.watchHostStats();
+
   // ── File Operations ──
 
   Future<List<FileItem>> listDir(String path) => _source.listDir(path);

@@ -25,6 +25,17 @@ class OnePanelServerSource implements ServerSource {
   Future<SystemStats> getSystemInfo() => _adapter.getHostInfo();
 
   @override
+  Stream<SystemStats> watchHostStats() async* {
+    // 1Panel has no push channel, so poll the dashboard API on a fixed
+    // interval. The UI binds to this stream and never polls itself.
+    yield await _adapter.getHostInfo();
+    await for (final stats in Stream.periodic(const Duration(seconds: 5))
+        .asyncMap((_) => _adapter.getHostInfo())) {
+      yield stats;
+    }
+  }
+
+  @override
   Future<List<FileItem>> listDir(String path) => _adapter.listDir(path);
 
   @override
