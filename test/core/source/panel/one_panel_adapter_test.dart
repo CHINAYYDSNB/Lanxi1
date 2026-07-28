@@ -174,4 +174,76 @@ void main() {
       expect(result.destPath, '/tmp/a.zip');
     });
   });
+
+  group('file ops', () {
+    test('readFile returns data.content', () async {
+      when(() => mockClient.post(any(), data: any(named: 'data'))).thenAnswer(
+        (_) async => {
+          'code': 200,
+          'message': 'success',
+          'data': {'content': 'hello\nworld'},
+        },
+      );
+
+      expect(await adapter.readFile('/etc/hosts'), 'hello\nworld');
+    });
+
+    test('readFile throws PanelFallbackException on API error', () async {
+      when(() => mockClient.post(any(), data: any(named: 'data')))
+          .thenAnswer((_) async => {'code': 500, 'message': 'boom'});
+
+      expect(
+        () => adapter.readFile('/etc/hosts'),
+        throwsA(isA<PanelFallbackException>()),
+      );
+    });
+
+    test('writeFile posts path + content', () async {
+      when(() => mockClient.post(any(), data: any(named: 'data')))
+          .thenAnswer((_) async => {'code': 200, 'message': 'success', 'data': null});
+
+      await adapter.writeFile('/tmp/a.txt', 'data');
+
+      verify(() => mockClient.post(
+            '/api/v2/files/save',
+            data: {'path': '/tmp/a.txt', 'content': 'data'},
+          )).called(1);
+    });
+
+    test('deleteFile posts path + isDir', () async {
+      when(() => mockClient.post(any(), data: any(named: 'data')))
+          .thenAnswer((_) async => {'code': 200, 'message': 'success', 'data': null});
+
+      await adapter.deleteFile('/tmp/dir', isDir: true);
+
+      verify(() => mockClient.post(
+            '/api/v2/files/del',
+            data: {'path': '/tmp/dir', 'isDir': true},
+          )).called(1);
+    });
+
+    test('renameFile posts oldName + newName', () async {
+      when(() => mockClient.post(any(), data: any(named: 'data')))
+          .thenAnswer((_) async => {'code': 200, 'message': 'success', 'data': null});
+
+      await adapter.renameFile('/a', '/b');
+
+      verify(() => mockClient.post(
+            '/api/v2/files/rename',
+            data: {'oldName': '/a', 'newName': '/b'},
+          )).called(1);
+    });
+
+    test('createFile posts path + isDir (+ content)', () async {
+      when(() => mockClient.post(any(), data: any(named: 'data')))
+          .thenAnswer((_) async => {'code': 200, 'message': 'success', 'data': null});
+
+      await adapter.createFile('/tmp/new', isDir: false, content: 'x');
+
+      verify(() => mockClient.post(
+            '/api/v2/files',
+            data: {'path': '/tmp/new', 'isDir': false, 'content': 'x'},
+          )).called(1);
+    });
+  });
 }

@@ -134,4 +134,52 @@ void main() {
       verify(() => mockClient.shell(pty: any(named: 'pty'))).called(1);
     });
   });
+
+  group('file operations', () {
+    test('readFile returns remote stdout', () async {
+      when(() => mockClient.execute(any()))
+          .thenAnswer((_) => _sessionReturning('file content'));
+
+      final content = await source.readFile('/etc/hosts');
+
+      expect(content, 'file content');
+      verify(() => mockClient.execute(any())).called(1);
+    });
+
+    test('writeFile runs without throwing', () async {
+      when(() => mockClient.execute(any()))
+          .thenAnswer((_) => _sessionReturning(''));
+
+      await source.writeFile('/tmp/a', 'hello');
+
+      verify(() => mockClient.execute(any())).called(1);
+    });
+
+    test('deleteFile runs rm without throwing', () async {
+      when(() => mockClient.execute(any()))
+          .thenAnswer((_) => _sessionReturning(''));
+
+      await source.deleteFile('/tmp/a', isDir: false);
+
+      verify(() => mockClient.execute(any())).called(1);
+    });
+
+    test('renameFile runs mv without throwing', () async {
+      when(() => mockClient.execute(any()))
+          .thenAnswer((_) => _sessionReturning(''));
+
+      await source.renameFile('/a', '/b');
+
+      verify(() => mockClient.execute(any())).called(1);
+    });
+
+    test('createFile runs mkdir for a directory', () async {
+      when(() => mockClient.execute(any()))
+          .thenAnswer((_) => _sessionReturning(''));
+
+      await source.createFile('/tmp/dir', isDir: true);
+
+      verify(() => mockClient.execute(any())).called(1);
+    });
+  });
 }

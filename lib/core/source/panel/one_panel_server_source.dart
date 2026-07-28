@@ -31,6 +31,25 @@ class OnePanelServerSource implements ServerSource {
       _adapter.compress(src, dest);
 
   @override
+  Future<String> readFile(String path) => _adapter.readFile(path);
+
+  @override
+  Future<void> writeFile(String path, String content) =>
+      _adapter.writeFile(path, content);
+
+  @override
+  Future<void> deleteFile(String path, {required bool isDir}) =>
+      _adapter.deleteFile(path, isDir: isDir);
+
+  @override
+  Future<void> renameFile(String oldPath, String newPath) =>
+      _adapter.renameFile(oldPath, newPath);
+
+  @override
+  Future<void> createFile(String path, {required bool isDir, String? content}) =>
+      _adapter.createFile(path, isDir: isDir, content: content);
+
+  @override
   Future<void> setNtp(String server) {
     throw const PanelFallbackException(
       'setNtp not available through 1Panel API',

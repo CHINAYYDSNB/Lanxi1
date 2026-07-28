@@ -1,10 +1,17 @@
 // ignore_for_file: require_trailing_commas
+// CI rule: strings containing $var MUST stay double-quoted (single quotes
+// silently skip interpolation). Mirrors ssh_server_source.dart.
+// ignore_for_file: prefer_single_quotes
+
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:lanxi/core/logger.dart';
 import 'package:lanxi/models/domain/file_item.dart';
 import 'package:lanxi/services/server_service.dart';
 import 'package:lanxi/widgets/app_card.dart';
+
+import 'file_editor_page.dart';
 
 /// File browser with breadcrumb navigation.
 class FilesPage extends StatefulWidget {
@@ -42,10 +49,10 @@ class _FilesPageState extends State<FilesPage> {
         _loading = false;
       });
     } catch (e) {
-      appLogger.e('Failed to list directory $path', e);
+      appLogger.e("Failed to list directory $path", e);
       if (!mounted) return;
       setState(() {
-        _error = '加载失败：$e';
+        _error = "加载失败：$e";
         _loading = false;
       });
     }
@@ -53,9 +60,168 @@ class _FilesPageState extends State<FilesPage> {
 
   void _openItem(FileItem item) {
     if (item.isDir) {
-      _navigateTo(item.path);
+      unawaited(_navigateTo(item.path));
     } else {
+      unawaited(_openEditor(item));
+    }
+  }
+
+  Future<void> _openEditor(FileItem item) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => FileEditorPage(
+          service: widget.service,
+          filePath: item.path,
+          fileName: item.name,
+        ),
+      ),
+    );
+  }
+
+  /// Long-press menu: rename / delete / properties.
+  Future<void> _showItemMenu(FileItem item) async {
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.drive_file_rename_outline),
+              title: const Text('重命名'),
+              onTap: () => Navigator.pop(ctx, 'rename'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.info_outline),
+              title: const Text('属性'),
+              onTap: () => Navigator.pop(ctx, 'info'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete_outline),
+              title: const Text('删除'),
+              textColor: Theme.of(ctx).colorScheme.error,
+              iconColor: Theme.of(ctx).colorScheme.error,
+              onTap: () => Navigator.pop(ctx, 'delete'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (choice == 'rename') {
+      await _renameItem(item);
+    } else if (choice == 'info') {
       _showFileInfo(item);
+    } else if (choice == 'delete') {
+      await _deleteItem(item);
+    }
+  }
+
+  Future<void> _renameItem(FileItem item) async {
+    final ctrl = TextEditingController(text: item.name);
+    final newName = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('重命名'),
+        content: TextField(
+          controller: ctrl,
+          decoration: const InputDecoration(hintText: '新名称'),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+            child: const Text('确定'),
+          ),
+        ],
+      ),
+    );
+    if (newName == null || newName.isEmpty || newName == item.name) return;
+    final parent = _parentPath(item.path);
+    final newPath = parent == '/' ? "/$newName" : "$parent/$newName";
+    try {
+      await widget.service.renameFile(item.path, newPath);
+      if (!mounted) return;
+      unawaited(_navigateTo(_currentPath));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("重命名失败：$e"), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  Future<void> _deleteItem(FileItem item) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('删除'),
+        content: Text('确定删除「${item.name}」吗？此操作不可恢复。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    try {
+      await widget.service.deleteFile(item.path, isDir: item.isDir);
+      if (!mounted) return;
+      unawaited(_navigateTo(_currentPath));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("删除失败：$e"), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  /// FAB: create a new file or directory under the current path.
+  Future<void> _createItem({required bool isDir}) async {
+    final ctrl = TextEditingController();
+    final name = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(isDir ? '新建文件夹' : '新建文件'),
+        content: TextField(
+          controller: ctrl,
+          decoration: const InputDecoration(hintText: '名称'),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+            child: const Text('创建'),
+          ),
+        ],
+      ),
+    );
+    if (name == null || name.isEmpty) return;
+    final parent = _currentPath;
+    final path = parent == '/' ? "/$name" : "$parent/$name";
+    try {
+      await widget.service.createFile(path, isDir: isDir);
+      if (!mounted) return;
+      unawaited(_navigateTo(_currentPath));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("创建失败：$e"), backgroundColor: Colors.red),
+      );
     }
   }
 
@@ -99,24 +265,60 @@ class _FilesPageState extends State<FilesPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        // Breadcrumb
-        _BreadcrumbBar(
-          path: _currentPath,
-          onSegmentTap: (segPath) => _navigateTo(segPath),
-          onBack: _currentPath != '/'
-              ? () {
-                  final parent = _parentPath(_currentPath);
-                  _navigateTo(parent);
-                }
-              : null,
-        ),
+    return Scaffold(
+      body: Column(
+        children: [
+          // Breadcrumb
+          _BreadcrumbBar(
+            path: _currentPath,
+            onSegmentTap: (segPath) => _navigateTo(segPath),
+            onBack: _currentPath != '/'
+                ? () {
+                    final parent = _parentPath(_currentPath);
+                    _navigateTo(parent);
+                  }
+                : null,
+          ),
 
-        // Content
-        Expanded(child: _buildContent()),
-      ],
+          // Content
+          Expanded(child: _buildContent()),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _showCreateMenu,
+        tooltip: '新建',
+        child: const Icon(Icons.add),
+      ),
     );
+  }
+
+  /// FAB menu: choose to create a file or a directory.
+  Future<void> _showCreateMenu() async {
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.note_add_outlined),
+              title: const Text('新建文件'),
+              onTap: () => Navigator.pop(ctx, 'file'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.create_new_folder_outlined),
+              title: const Text('新建文件夹'),
+              onTap: () => Navigator.pop(ctx, 'dir'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (choice == 'file') {
+      unawaited(_createItem(isDir: false));
+    } else if (choice == 'dir') {
+      unawaited(_createItem(isDir: true));
+    }
   }
 
   Widget _buildContent() {
@@ -196,6 +398,7 @@ class _FilesPageState extends State<FilesPage> {
                   ? const Icon(Icons.chevron_right, size: 18)
                   : null,
               onTap: () => _openItem(item),
+              onLongPress: () => _showItemMenu(item),
             ),
           );
         },

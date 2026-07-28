@@ -107,4 +107,122 @@ class OnePanelAdapter {
       throw PanelFallbackException('API unreachable', original: e);
     }
   }
+
+  /// Read a file's text content.
+  ///
+  /// POST /api/v2/files/content  ->  data.content
+  Future<String> readFile(String path) async {
+    try {
+      final response = await _client.post(
+        '/api/v2/files/content',
+        data: {'path': path},
+      );
+      final apiResp = ApiResponse<Map<String, dynamic>>.fromJson(
+        response,
+        (json) => json,
+      );
+      if (!apiResp.isSuccess || apiResp.data == null) {
+        throw PanelFallbackException(
+          'Failed to read file',
+          statusCode: apiResp.code,
+        );
+      }
+      return apiResp.data!['content'] as String? ?? '';
+    } on PanelFallbackException {
+      rethrow;
+    } catch (e) {
+      throw PanelFallbackException('API unreachable', original: e);
+    }
+  }
+
+  /// Save file content.
+  ///
+  /// POST /api/v2/files/save  ->  {path, content}
+  Future<void> writeFile(String path, String content) async {
+    try {
+      final response = await _client.post(
+        '/api/v2/files/save',
+        data: {'path': path, 'content': content},
+      );
+      final apiResp = ApiResponse.fromJson(response, (_) => null);
+      if (!apiResp.isSuccess) {
+        throw PanelFallbackException(
+          'Failed to save file',
+          statusCode: apiResp.code,
+        );
+      }
+    } on PanelFallbackException {
+      rethrow;
+    } catch (e) {
+      throw PanelFallbackException('API unreachable', original: e);
+    }
+  }
+
+  /// Delete a file or directory.
+  ///
+  /// POST /api/v2/files/del  ->  {path, isDir}
+  Future<void> deleteFile(String path, {required bool isDir}) async {
+    try {
+      final response = await _client.post(
+        '/api/v2/files/del',
+        data: {'path': path, 'isDir': isDir},
+      );
+      final apiResp = ApiResponse.fromJson(response, (_) => null);
+      if (!apiResp.isSuccess) {
+        throw PanelFallbackException(
+          'Failed to delete',
+          statusCode: apiResp.code,
+        );
+      }
+    } on PanelFallbackException {
+      rethrow;
+    } catch (e) {
+      throw PanelFallbackException('API unreachable', original: e);
+    }
+  }
+
+  /// Rename / move a file or directory.
+  ///
+  /// POST /api/v2/files/rename  ->  {oldName, newName}
+  Future<void> renameFile(String oldPath, String newPath) async {
+    try {
+      final response = await _client.post(
+        '/api/v2/files/rename',
+        data: {'oldName': oldPath, 'newName': newPath},
+      );
+      final apiResp = ApiResponse.fromJson(response, (_) => null);
+      if (!apiResp.isSuccess) {
+        throw PanelFallbackException(
+          'Failed to rename',
+          statusCode: apiResp.code,
+        );
+      }
+    } on PanelFallbackException {
+      rethrow;
+    } catch (e) {
+      throw PanelFallbackException('API unreachable', original: e);
+    }
+  }
+
+  /// Create a new file or directory.
+  ///
+  /// POST /api/v2/files  ->  {path, isDir, content?}
+  Future<void> createFile(String path, {required bool isDir, String? content}) async {
+    try {
+      final data = <String, dynamic>{'path': path, 'isDir': isDir};
+      if (content != null) data['content'] = content;
+      final response = await _client.post('/api/v2/files', data: data);
+      final apiResp = ApiResponse.fromJson(response, (_) => null);
+      if (!apiResp.isSuccess) {
+        throw PanelFallbackException(
+          'Failed to create',
+          statusCode: apiResp.code,
+        );
+      }
+    } on PanelFallbackException {
+      rethrow;
+    } catch (e) {
+      throw PanelFallbackException('API unreachable', original: e);
+    }
+  }
 }

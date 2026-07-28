@@ -1,3 +1,5 @@
+// ignore_for_file: require_trailing_commas
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lanxi/core/source/exceptions.dart';
 import 'package:lanxi/core/source/interactive_session.dart';
@@ -167,6 +169,130 @@ void main() {
 
       expect(session, isA<InteractiveSession>());
       verify(() => mockSsh.openShell()).called(1);
+    });
+  });
+
+  group('file operations', () {
+    test('readFile delegates to panel', () async {
+      when(() => mockPanel.readFile(any())).thenAnswer((_) async => 'c');
+
+      expect(await source.readFile('/x'), 'c');
+
+      verify(() => mockPanel.readFile('/x')).called(1);
+      verifyNever(() => mockSsh.readFile(any()));
+    });
+
+    test('readFile falls back to SSH', () async {
+      when(() => mockPanel.readFile(any()))
+          .thenThrow(const PanelFallbackException('no'));
+      when(() => mockSsh.readFile(any())).thenAnswer((_) async => 's');
+
+      expect(await source.readFile('/x'), 's');
+
+      verify(() => mockSsh.readFile('/x')).called(1);
+    });
+
+    test('writeFile delegates to panel', () async {
+      when(() => mockPanel.writeFile(any(), any())).thenAnswer((_) async {});
+
+      await source.writeFile('/x', 'c');
+
+      verify(() => mockPanel.writeFile('/x', 'c')).called(1);
+      verifyNever(() => mockSsh.writeFile(any(), any()));
+    });
+
+    test('writeFile falls back to SSH', () async {
+      when(() => mockPanel.writeFile(any(), any()))
+          .thenThrow(const PanelFallbackException('no'));
+      when(() => mockSsh.writeFile(any(), any())).thenAnswer((_) async {});
+
+      await source.writeFile('/x', 'c');
+
+      verify(() => mockSsh.writeFile('/x', 'c')).called(1);
+    });
+
+    test('deleteFile delegates to panel', () async {
+      when(() => mockPanel.deleteFile(any(), isDir: any(named: 'isDir')))
+          .thenAnswer((_) async {});
+
+      await source.deleteFile('/x', isDir: true);
+
+      verify(() => mockPanel.deleteFile('/x', isDir: true)).called(1);
+      verifyNever(
+        () => mockSsh.deleteFile(any(), isDir: any(named: 'isDir')),
+      );
+    });
+
+    test('deleteFile falls back to SSH', () async {
+      when(() => mockPanel.deleteFile(any(), isDir: any(named: 'isDir')))
+          .thenThrow(const PanelFallbackException('no'));
+      when(() => mockSsh.deleteFile(any(), isDir: any(named: 'isDir')))
+          .thenAnswer((_) async {});
+
+      await source.deleteFile('/x', isDir: false);
+
+      verify(() => mockSsh.deleteFile('/x', isDir: false)).called(1);
+    });
+
+    test('renameFile delegates to panel', () async {
+      when(() => mockPanel.renameFile(any(), any())).thenAnswer((_) async {});
+
+      await source.renameFile('/a', '/b');
+
+      verify(() => mockPanel.renameFile('/a', '/b')).called(1);
+      verifyNever(() => mockSsh.renameFile(any(), any()));
+    });
+
+    test('renameFile falls back to SSH', () async {
+      when(() => mockPanel.renameFile(any(), any()))
+          .thenThrow(const PanelFallbackException('no'));
+      when(() => mockSsh.renameFile(any(), any())).thenAnswer((_) async {});
+
+      await source.renameFile('/a', '/b');
+
+      verify(() => mockSsh.renameFile('/a', '/b')).called(1);
+    });
+
+    test('createFile delegates to panel', () async {
+      when(() => mockPanel.createFile(
+            any(),
+            isDir: any(named: 'isDir'),
+            content: any(named: 'content'),
+          )).thenAnswer((_) async {});
+
+      await source.createFile('/x', isDir: true);
+
+      verify(() => mockPanel.createFile(
+            '/x',
+            isDir: true,
+            content: any(named: 'content'),
+          )).called(1);
+      verifyNever(() => mockSsh.createFile(
+            any(),
+            isDir: any(named: 'isDir'),
+            content: any(named: 'content'),
+          ));
+    });
+
+    test('createFile falls back to SSH', () async {
+      when(() => mockPanel.createFile(
+            any(),
+            isDir: any(named: 'isDir'),
+            content: any(named: 'content'),
+          )).thenThrow(const PanelFallbackException('no'));
+      when(() => mockSsh.createFile(
+            any(),
+            isDir: any(named: 'isDir'),
+            content: any(named: 'content'),
+          )).thenAnswer((_) async {});
+
+      await source.createFile('/x', isDir: false, content: 'c');
+
+      verify(() => mockSsh.createFile(
+            '/x',
+            isDir: false,
+            content: 'c',
+          )).called(1);
     });
   });
 }

@@ -9,6 +9,10 @@ coverage/
 .packages
 .pub/
 .pub-cache/
+.flutter-plugins-dependencies
+
+# Local handover notes may contain secrets — never commit
+HANDOVER.md
 
 # macOS
 .DS_Store

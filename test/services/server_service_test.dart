@@ -140,4 +140,54 @@ void main() {
       verify(() => mockSource.openShell()).called(1);
     });
   });
+
+  group('file operations', () {
+    test('readFile delegates to source', () async {
+      when(() => mockSource.readFile(any())).thenAnswer((_) async => 'c');
+
+      expect(await service.readFile('/x'), 'c');
+      verify(() => mockSource.readFile('/x')).called(1);
+    });
+
+    test('writeFile delegates to source', () async {
+      when(() => mockSource.writeFile(any(), any())).thenAnswer((_) async {});
+
+      await service.writeFile('/x', 'c');
+
+      verify(() => mockSource.writeFile('/x', 'c')).called(1);
+    });
+
+    test('deleteFile delegates to source', () async {
+      when(() => mockSource.deleteFile(any(), isDir: any(named: 'isDir')))
+          .thenAnswer((_) async {});
+
+      await service.deleteFile('/x', isDir: true);
+
+      verify(() => mockSource.deleteFile('/x', isDir: true)).called(1);
+    });
+
+    test('renameFile delegates to source', () async {
+      when(() => mockSource.renameFile(any(), any())).thenAnswer((_) async {});
+
+      await service.renameFile('/a', '/b');
+
+      verify(() => mockSource.renameFile('/a', '/b')).called(1);
+    });
+
+    test('createFile delegates to source', () async {
+      when(() => mockSource.createFile(
+            any(),
+            isDir: any(named: 'isDir'),
+            content: any(named: 'content'),
+          )).thenAnswer((_) async {});
+
+      await service.createFile('/x', isDir: false, content: 'c');
+
+      verify(() => mockSource.createFile(
+            '/x',
+            isDir: false,
+            content: 'c',
+          )).called(1);
+    });
+  });
 }

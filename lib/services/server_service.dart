@@ -24,6 +24,20 @@ class ServerService {
 
   Future<List<FileItem>> listDir(String path) => _source.listDir(path);
 
+  Future<String> readFile(String path) => _source.readFile(path);
+
+  Future<void> writeFile(String path, String content) =>
+      _source.writeFile(path, content);
+
+  Future<void> deleteFile(String path, {required bool isDir}) =>
+      _source.deleteFile(path, isDir: isDir);
+
+  Future<void> renameFile(String oldPath, String newPath) =>
+      _source.renameFile(oldPath, newPath);
+
+  Future<void> createFile(String path, {required bool isDir, String? content}) =>
+      _source.createFile(path, isDir: isDir, content: content);
+
   Future<CompressResult> compress(List<String> src, String dest) =>
       _source.compress(src, dest);
 

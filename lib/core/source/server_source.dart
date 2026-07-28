@@ -15,6 +15,21 @@ abstract class ServerSource {
   /// List entries in [path].
   Future<List<FileItem>> listDir(String path);
 
+  /// Read a file's text content (for the editor).
+  Future<String> readFile(String path);
+
+  /// Write [content] to [path] (editor save).
+  Future<void> writeFile(String path, String content);
+
+  /// Delete [path]; [isDir] selects recursive removal of directories.
+  Future<void> deleteFile(String path, {required bool isDir});
+
+  /// Rename / move [oldPath] to [newPath].
+  Future<void> renameFile(String oldPath, String newPath);
+
+  /// Create a new file or directory at [path].
+  Future<void> createFile(String path, {required bool isDir, String? content});
+
   /// Compress [src] items into [dest] archive.
   Future<CompressResult> compress(List<String> src, String dest);
 

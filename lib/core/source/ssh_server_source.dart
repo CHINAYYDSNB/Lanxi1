@@ -131,10 +131,49 @@ class SshServerSource implements ServerSource {
   }
 
   @override
+  Future<String> readFile(String path) async {
+    // Text-only read for the editor. Binary content would be garbled, which
+    // is acceptable for a quick-edit workflow.
+    return _exec("cat -- '$path'");
+  }
+
+  @override
+  Future<void> writeFile(String path, String content) async {
+    // Pipe base64-encoded content through `base64 -d` to avoid issues with
+    // shell-significant characters or a colliding heredoc delimiter.
+    final b64 = base64.encode(utf8.encode(content));
+    await _exec("base64 -d > '$path' <<'LANXI_EOF'\n$b64\nLANXI_EOF");
+  }
+
+  @override
+  Future<void> deleteFile(String path, {required bool isDir}) async {
+    await _exec("rm -rf '$path'");
+  }
+
+  @override
+  Future<void> renameFile(String oldPath, String newPath) async {
+    await _exec("mv -- '$oldPath' '$newPath'");
+  }
+
+  @override
+  Future<void> createFile(String path, {required bool isDir, String? content}) async {
+    if (isDir) {
+      await _exec("mkdir -p '$path'");
+      return;
+    }
+    if (content != null) {
+      final b64 = base64.encode(utf8.encode(content));
+      await _exec("base64 -d > '$path' <<'LANXI_EOF'\n$b64\nLANXI_EOF");
+    } else {
+      await _exec("touch '$path'");
+    }
+  }
+
+  @override
   Future<void> setNtp(String server) async {
     final cmd = "timedatectl set-ntp true && timedatectl set-timezone $server";
     await _exec(cmd);
-    appLogger.i('NTP set to $server');
+    appLogger.i("NTP set to $server");
   }
 
   @override
@@ -263,7 +302,7 @@ class SshServerSource implements ServerSource {
       items.add(
         FileItem(
           name: name,
-          path: '$basePath/$name',
+          path: "$basePath/$name",
           size: size,
           isDir: isDir,
           permissions: perms,

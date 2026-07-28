@@ -55,6 +55,56 @@ class FallbackServerSource implements ServerSource {
   }
 
   @override
+  Future<String> readFile(String path) async {
+    try {
+      return await panel.readFile(path);
+    } on PanelFallbackException catch (e) {
+      appLogger.w('Fallback: API readFile failed — using SSH ($e)');
+      return await ssh.readFile(path);
+    }
+  }
+
+  @override
+  Future<void> writeFile(String path, String content) async {
+    try {
+      await panel.writeFile(path, content);
+    } on PanelFallbackException catch (e) {
+      appLogger.w('Fallback: API writeFile failed — using SSH ($e)');
+      await ssh.writeFile(path, content);
+    }
+  }
+
+  @override
+  Future<void> deleteFile(String path, {required bool isDir}) async {
+    try {
+      await panel.deleteFile(path, isDir: isDir);
+    } on PanelFallbackException catch (e) {
+      appLogger.w('Fallback: API deleteFile failed — using SSH ($e)');
+      await ssh.deleteFile(path, isDir: isDir);
+    }
+  }
+
+  @override
+  Future<void> renameFile(String oldPath, String newPath) async {
+    try {
+      await panel.renameFile(oldPath, newPath);
+    } on PanelFallbackException catch (e) {
+      appLogger.w('Fallback: API renameFile failed — using SSH ($e)');
+      await ssh.renameFile(oldPath, newPath);
+    }
+  }
+
+  @override
+  Future<void> createFile(String path, {required bool isDir, String? content}) async {
+    try {
+      await panel.createFile(path, isDir: isDir, content: content);
+    } on PanelFallbackException catch (e) {
+      appLogger.w('Fallback: API createFile failed — using SSH ($e)');
+      await ssh.createFile(path, isDir: isDir, content: content);
+    }
+  }
+
+  @override
   Future<void> setNtp(String server) async {
     try {
       await panel.setNtp(server);
