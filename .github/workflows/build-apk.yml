@@ -25,7 +25,12 @@ jobs:
 
       - name: Verify Commit Prefix
         run: |
-          COMMIT_MSG="${{ github.event.head_commit.message || github.event.pull_request.title }}"
+          # Capture the commit/PR title via a quoted heredoc so embedded
+          # quotes/newlines in the message can't break the shell assignment.
+          COMMIT_MSG=$(cat <<'LANXI_EOF'
+${{ github.event.head_commit.message || github.event.pull_request.title }}
+LANXI_EOF
+)
           echo "Commit/PR: $COMMIT_MSG"
 
           # Block test: from merging to main
@@ -113,7 +118,7 @@ jobs:
       - name: Build APK (Release only for done:, Debug otherwise)
         run: |
           COMMIT_MSG="${{ github.event.head_commit.message || github.event.pull_request.title }}"
-          if [[ "$COMMIT_MSG" =~ ^done(:|\() ]]; then
+          if [[ "$COMMIT_MSG" =~ ^(done|wip)(:|\() ]]; then
             echo "Building RELEASE APK (done:)"
             flutter build apk --release
             APK_PATH="build/app/outputs/flutter-apk/app-release.apk"
