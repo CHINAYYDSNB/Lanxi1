@@ -36,9 +36,9 @@ jobs:
             fi
           fi
 
-          # Validate prefix format
-          if ! [[ "$COMMIT_MSG" =~ ^(test|wip|done|shell|fix|refactor|partial|blocked): ]]; then
-            echo "::warning::Commit prefix not recognized. Allowed: test:/wip:/done:/shell:/fix:/refactor:"
+          # Validate prefix format (scoped prefixes like wip(docker): allowed)
+          if ! [[ "$COMMIT_MSG" =~ ^(test|wip|done|shell|fix|refactor|partial|blocked)(?:\([a-z0-9]+\))?: ]]; then
+            echo "::warning::Commit prefix not recognized. Allowed: test:/wip:/done:/shell:/fix:/refactor: (with optional scope, e.g. wip(docker):)"
           fi
 
       - name: Flutter Pub Get
@@ -113,7 +113,7 @@ jobs:
       - name: Build APK (Debug for test:, Release for done:)
         run: |
           COMMIT_MSG="${{ github.event.head_commit.message || github.event.pull_request.title }}"
-          if [[ "$COMMIT_MSG" =~ ^test: ]] || [[ "$COMMIT_MSG" =~ ^wip: ]]; then
+          if [[ "$COMMIT_MSG" =~ ^test(:|\() ]] || [[ "$COMMIT_MSG" =~ ^wip(:|\() ]]; then
             echo "Building DEBUG APK (test/wip build)"
             flutter build apk --debug
             APK_PATH="build/app/outputs/flutter-apk/app-debug.apk"
@@ -124,7 +124,7 @@ jobs:
           fi
 
           # Verify APK type matches prefix
-          if [[ "$COMMIT_MSG" =~ ^test: ]] && [[ "$APK_PATH" =~ release ]]; then
+          if [[ "$COMMIT_MSG" =~ ^test(:|\() ]] && [[ "$APK_PATH" =~ release ]]; then
             echo "::error::test(:) commits must not produce release APK"
             exit 1
           fi
