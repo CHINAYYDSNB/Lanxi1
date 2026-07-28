@@ -25,16 +25,14 @@ jobs:
 
       - name: Verify Commit Prefix
         run: |
-          # Capture the commit/PR title via a quoted heredoc so embedded
-          # quotes/newlines in the message can't break the shell assignment.
-          COMMIT_MSG=$(cat <<'LANXI_EOF'
-${{ github.event.head_commit.message || github.event.pull_request.title }}
-LANXI_EOF
-)
+          # Read the commit/PR message at RUNTIME from the event payload JSON.
+          # Avoids injecting ${{ github.event.head_commit.message }} into the YAML,
+          # which breaks parsing when the message has a multi-line body.
+          COMMIT_MSG=$(jq -r '.head_commit.message // .pull_request.title // empty' "$GITHUB_EVENT_PATH")
           echo "Commit/PR: $COMMIT_MSG"
 
           # Block test: from merging to main
-          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+          if [[ "$GITHUB_REF" == "refs/heads/main" ]]; then
             if [[ "$COMMIT_MSG" =~ ^test: ]]; then
               echo "::error::🚫 'test:' commits are build-only and CANNOT be merged into main."
               exit 1
@@ -117,7 +115,7 @@ LANXI_EOF
 
       - name: Build APK (Release only for done:, Debug otherwise)
         run: |
-          COMMIT_MSG="${{ github.event.head_commit.message || github.event.pull_request.title }}"
+          COMMIT_MSG=$(jq -r '.head_commit.message // .pull_request.title // empty' "$GITHUB_EVENT_PATH")
           if [[ "$COMMIT_MSG" =~ ^(done|wip)(:|\() ]]; then
             echo "Building RELEASE APK (done:)"
             flutter build apk --release
