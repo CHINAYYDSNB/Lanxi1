@@ -37,8 +37,8 @@ jobs:
           fi
 
           # Validate prefix format (scoped prefixes like wip(docker): allowed)
-          if ! [[ "$COMMIT_MSG" =~ ^(test|wip|done|shell|fix|refactor|partial|blocked)(?:\([a-z0-9]+\))?: ]]; then
-            echo "::warning::Commit prefix not recognized. Allowed: test:/wip:/done:/shell:/fix:/refactor: (with optional scope, e.g. wip(docker):)"
+          if ! [[ "$COMMIT_MSG" =~ ^(test|wip|done|shell|fix|refactor|partial|blocked)(\([a-z0-9]+\))?:// ]]; then
+            echo "::warning::Commit prefix not recognized. Allowed prefixes: test wip done shell fix refactor partial blocked, optional scope also allowed e.g. wip docker colon"
           fi
 
       - name: Flutter Pub Get
