@@ -37,8 +37,8 @@ jobs:
           fi
 
           # Validate prefix format (scoped prefixes like wip(docker): allowed)
-          if ! [[ "$COMMIT_MSG" =~ ^(test|wip|done|shell|fix|refactor|partial|blocked)(\([a-z0-9]+\))?:// ]]; then
-            echo "::warning::Commit prefix not recognized. Allowed prefixes: test wip done shell fix refactor partial blocked, optional scope also allowed e.g. wip docker colon"
+          if ! [[ "$COMMIT_MSG" =~ ^(test|wip|done|shell|fix|refactor|partial|blocked)(\([a-z0-9]+\))?: ]]; then
+            echo "::warning::Commit prefix not recognized. Allowed prefixes: test wip done shell fix refactor partial blocked, optional scope also allowed e.g. wip(docker):"
           fi
 
       - name: Flutter Pub Get
@@ -110,23 +110,17 @@ jobs:
             echo "::warning::No coverage report found."
           fi
 
-      - name: Build APK (Debug for test:, Release for done:)
+      - name: Build APK (Release only for done:, Debug otherwise)
         run: |
           COMMIT_MSG="${{ github.event.head_commit.message || github.event.pull_request.title }}"
-          if [[ "$COMMIT_MSG" =~ ^test(:|\() ]] || [[ "$COMMIT_MSG" =~ ^wip(:|\() ]]; then
-            echo "Building DEBUG APK (test/wip build)"
-            flutter build apk --debug
-            APK_PATH="build/app/outputs/flutter-apk/app-debug.apk"
-          else
-            echo "Building RELEASE APK"
+          if [[ "$COMMIT_MSG" =~ ^done(:|\() ]]; then
+            echo "Building RELEASE APK (done:)"
             flutter build apk --release
             APK_PATH="build/app/outputs/flutter-apk/app-release.apk"
-          fi
-
-          # Verify APK type matches prefix
-          if [[ "$COMMIT_MSG" =~ ^test(:|\() ]] && [[ "$APK_PATH" =~ release ]]; then
-            echo "::error::test(:) commits must not produce release APK"
-            exit 1
+          else
+            echo "Building DEBUG APK"
+            flutter build apk --debug
+            APK_PATH="build/app/outputs/flutter-apk/app-debug.apk"
           fi
 
           echo "APK_PATH=$APK_PATH" >> $GITHUB_ENV
