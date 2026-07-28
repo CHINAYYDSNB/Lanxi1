@@ -1,5 +1,7 @@
 // ignore_for_file: require_trailing_commas
 
+import 'dart:typed_data';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lanxi/core/source/exceptions.dart';
 import 'package:lanxi/core/source/interactive_session.dart';
@@ -153,6 +155,79 @@ void main() {
 
       expect(result.success, true);
       verify(() => mockSsh.compress(['/tmp/b'], '/tmp/b.zip')).called(1);
+    });
+  });
+
+  group('readFileBytes', () {
+    test('delegates to panel', () async {
+      when(() => mockPanel.readFileBytes(any()))
+          .thenAnswer((_) async => Uint8List.fromList([1, 2, 3]));
+
+      final bytes = await source.readFileBytes('/x.png');
+
+      expect(bytes, [1, 2, 3]);
+      verify(() => mockPanel.readFileBytes('/x.png')).called(1);
+      verifyNever(() => mockSsh.readFileBytes(any()));
+    });
+
+    test('falls back to SSH on PanelFallbackException', () async {
+      when(() => mockPanel.readFileBytes(any()))
+          .thenThrow(const PanelFallbackException('no'));
+      when(() => mockSsh.readFileBytes(any()))
+          .thenAnswer((_) async => Uint8List.fromList([9]));
+
+      final bytes = await source.readFileBytes('/x.png');
+
+      expect(bytes, [9]);
+      verify(() => mockSsh.readFileBytes('/x.png')).called(1);
+    });
+  });
+
+  group('setFilePermission', () {
+    test('delegates to panel', () async {
+      when(() => mockPanel.setFilePermission(
+            any(),
+            mode: any(named: 'mode'),
+            owner: any(named: 'owner'),
+            group: any(named: 'group'),
+          )).thenAnswer((_) async {});
+
+      await source.setFilePermission('/x', mode: 493, owner: 'www', group: 'www');
+
+      verify(() => mockPanel.setFilePermission(
+            '/x',
+            mode: 493,
+            owner: 'www',
+            group: 'www',
+          )).called(1);
+      verifyNever(() => mockSsh.setFilePermission(
+            any(),
+            mode: any(named: 'mode'),
+          ));
+    });
+
+    test('falls back to SSH on PanelFallbackException', () async {
+      when(() => mockPanel.setFilePermission(
+            any(),
+            mode: any(named: 'mode'),
+            owner: any(named: 'owner'),
+            group: any(named: 'group'),
+          )).thenThrow(const PanelFallbackException('no'));
+      when(() => mockSsh.setFilePermission(
+            any(),
+            mode: any(named: 'mode'),
+            owner: any(named: 'owner'),
+            group: any(named: 'group'),
+          )).thenAnswer((_) async {});
+
+      await source.setFilePermission('/x', mode: 420);
+
+      verify(() => mockSsh.setFilePermission(
+            '/x',
+            mode: 420,
+            owner: any(named: 'owner'),
+            group: any(named: 'group'),
+          )).called(1);
     });
   });
 

@@ -4,6 +4,8 @@
 /// Every method delegates directly to the injected [ServerSource].
 library;
 
+import 'dart:typed_data';
+
 import 'package:lanxi/core/source/interactive_session.dart';
 import 'package:lanxi/core/source/panel_detector.dart';
 import 'package:lanxi/core/source/server_source.dart';
@@ -43,8 +45,22 @@ class ServerService {
   Future<void> createFile(String path, {required bool isDir, String? content}) =>
       _source.createFile(path, isDir: isDir, content: content);
 
-  Future<CompressResult> compress(List<String> src, String dest) =>
-      _source.compress(src, dest);
+  Future<CompressResult> compress(
+    List<String> src,
+    String dest, {
+    CompressFormat format = CompressFormat.tarGz,
+  }) =>
+      _source.compress(src, dest, format: format);
+
+  Future<Uint8List> readFileBytes(String path) => _source.readFileBytes(path);
+
+  Future<void> setFilePermission(
+    String path, {
+    required int mode,
+    String? owner,
+    String? group,
+  }) =>
+      _source.setFilePermission(path, mode: mode, owner: owner, group: group);
 
   // ── Docker ──
 

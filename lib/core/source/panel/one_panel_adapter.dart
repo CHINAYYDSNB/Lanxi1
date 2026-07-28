@@ -4,6 +4,8 @@
 /// Compatible with both nested (currentInfo) and flat JSON structures.
 library;
 
+import 'dart:typed_data';
+
 import 'package:lanxi/core/source/exceptions.dart';
 import 'package:lanxi/models/compress_result.dart';
 import 'package:lanxi/models/domain/file_item.dart';
@@ -77,13 +79,21 @@ class OnePanelAdapter {
 
   /// Compress files on the server.
   ///
-  /// POST /api/v2/files/compress
-  Future<CompressResult> compress(List<String> src, String dest) async {
+  /// POST /api/v2/files/compress  ->  {paths, destination, type}
+  Future<CompressResult> compress(
+    List<String> src,
+    String dest, {
+    CompressFormat format = CompressFormat.tarGz,
+  }) async {
     try {
       final start = DateTime.now();
       final response = await _client.post(
         '/api/v2/files/compress',
-        data: {'src': src, 'dest': dest},
+        data: {
+          'paths': src,
+          'destination': dest,
+          'type': format.apiType,
+        },
       );
       final duration = DateTime.now().difference(start);
       final apiResp = ApiResponse.fromJson(
@@ -102,6 +112,51 @@ class OnePanelAdapter {
         durationMs: duration.inMilliseconds,
         success: true,
       );
+    } on PanelFallbackException {
+      rethrow;
+    } catch (e) {
+      throw PanelFallbackException('API unreachable', original: e);
+    }
+  }
+
+  /// Read a file's raw bytes (for binary preview / download).
+  ///
+  /// GET /api/v2/files/download?path=...  ->  binary stream
+  Future<Uint8List> readFileBytes(String path) async {
+    try {
+      return await _client.getBytes(
+        '/api/v2/files/download',
+        queryParameters: {'path': path},
+      );
+    } on PanelFallbackException {
+      rethrow;
+    } catch (e) {
+      throw PanelFallbackException('API unreachable', original: e);
+    }
+  }
+
+  /// Change a file's permission mode and/or ownership.
+  ///
+  /// POST /api/v2/files/mode  ->  {path, mode, user?, userGroup?}
+  /// 1Panel expects [mode] as a decimal int (e.g. 493 == 0o755).
+  Future<void> setFilePermission(
+    String path, {
+    required int mode,
+    String? owner,
+    String? group,
+  }) async {
+    try {
+      final data = <String, dynamic>{'path': path, 'mode': mode};
+      if (owner != null && owner.isNotEmpty) data['user'] = owner;
+      if (group != null && group.isNotEmpty) data['userGroup'] = group;
+      final response = await _client.post('/api/v2/files/mode', data: data);
+      final apiResp = ApiResponse.fromJson(response, (_) => null);
+      if (!apiResp.isSuccess) {
+        throw PanelFallbackException(
+          'Failed to change permission',
+          statusCode: apiResp.code,
+        );
+      }
     } on PanelFallbackException {
       rethrow;
     } catch (e) {

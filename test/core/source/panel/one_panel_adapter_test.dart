@@ -1,9 +1,12 @@
 // ignore_for_file: require_trailing_commas
 
+import 'dart:typed_data';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lanxi/core/source/exceptions.dart';
 import 'package:lanxi/core/source/panel/dio_panel_api_client.dart';
 import 'package:lanxi/core/source/panel/one_panel_adapter.dart';
+import 'package:lanxi/models/compress_result.dart';
 import 'package:lanxi/models/domain/system_stats.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -159,7 +162,7 @@ void main() {
   });
 
   group('compress', () {
-    test('returns CompressResult on success', () async {
+    test('posts paths/destination/type and returns CompressResult', () async {
       when(() => mockClient.post(
             '/api/v2/files/compress',
             data: any(named: 'data'),
@@ -168,10 +171,98 @@ void main() {
             'message': 'success',
           });
 
-      final result = await adapter.compress(['/tmp/a.log'], '/tmp/a.zip');
+      final result = await adapter.compress(
+        ['/tmp/a.log'],
+        '/tmp/a.zip',
+        format: CompressFormat.zip,
+      );
 
       expect(result.success, true);
       expect(result.destPath, '/tmp/a.zip');
+      verify(() => mockClient.post(
+            '/api/v2/files/compress',
+            data: {
+              'paths': ['/tmp/a.log'],
+              'destination': '/tmp/a.zip',
+              'type': 'zip',
+            },
+          )).called(1);
+    });
+  });
+
+  group('readFileBytes', () {
+    test('GET /files/download returns raw bytes', () async {
+      when(() => mockClient.getBytes(
+            '/api/v2/files/download',
+            queryParameters: any(named: 'queryParameters'),
+          )).thenAnswer((_) async => Uint8List.fromList([1, 2, 3]));
+
+      final bytes = await adapter.readFileBytes('/tmp/a.png');
+
+      expect(bytes, [1, 2, 3]);
+      verify(() => mockClient.getBytes(
+            '/api/v2/files/download',
+            queryParameters: any(named: 'queryParameters'),
+          )).called(1);
+    });
+
+    test('wraps errors in PanelFallbackException', () {
+      when(() => mockClient.getBytes(
+            any(),
+            queryParameters: any(named: 'queryParameters'),
+          )).thenThrow(Exception('boom'));
+
+      expect(
+        () => adapter.readFileBytes('/tmp/a.png'),
+        throwsA(isA<PanelFallbackException>()),
+      );
+    });
+  });
+
+  group('setFilePermission', () {
+    test('posts /files/mode with mode + user + userGroup', () async {
+      when(() => mockClient.post(any(), data: any(named: 'data')))
+          .thenAnswer((_) async => {
+                'code': 200,
+                'message': 'success',
+                'data': null,
+              });
+
+      await adapter.setFilePermission(
+        '/tmp/a',
+        mode: 493,
+        owner: 'www-data',
+        group: 'www-data',
+      );
+
+      verify(() => mockClient.post(
+            '/api/v2/files/mode',
+            data: {
+              'path': '/tmp/a',
+              'mode': 493,
+              'user': 'www-data',
+              'userGroup': 'www-data',
+            },
+          )).called(1);
+    });
+
+    test('omits user/userGroup when not provided', () async {
+      when(() => mockClient.post(any(), data: any(named: 'data')))
+          .thenAnswer((_) async => {
+                'code': 200,
+                'message': 'success',
+                'data': null,
+              });
+
+      await adapter.setFilePermission('/tmp/a', mode: 420);
+
+      verify(() => mockClient.post(
+            '/api/v2/files/mode',
+            data: {
+              'path': '/tmp/a',
+              'mode': 420,
+            },
+          )).called(1);
     });
   });
 

@@ -12,6 +12,7 @@ import 'package:lanxi/services/server_service.dart';
 import 'package:lanxi/widgets/app_card.dart';
 
 import 'file_editor_page.dart';
+import 'image_preview_page.dart';
 
 /// File browser with breadcrumb navigation.
 class FilesPage extends StatefulWidget {
@@ -61,9 +62,36 @@ class _FilesPageState extends State<FilesPage> {
   void _openItem(FileItem item) {
     if (item.isDir) {
       unawaited(_navigateTo(item.path));
+    } else if (_isImage(item.name)) {
+      unawaited(_openImagePreview(item));
     } else {
       unawaited(_openEditor(item));
     }
+  }
+
+  bool _isImage(String name) {
+    final ext = name.toLowerCase().split('.').last;
+    return const {
+      'png',
+      'jpg',
+      'jpeg',
+      'gif',
+      'bmp',
+      'webp',
+    }.contains(ext);
+  }
+
+  Future<void> _openImagePreview(FileItem item) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ImagePreviewPage(
+          service: widget.service,
+          path: item.path,
+          name: item.name,
+        ),
+      ),
+    );
   }
 
   Future<void> _openEditor(FileItem item) async {
@@ -88,6 +116,16 @@ class _FilesPageState extends State<FilesPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
+              leading: const Icon(Icons.visibility_outlined),
+              title: const Text('预览'),
+              onTap: () => Navigator.pop(ctx, 'preview'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.archive_outlined),
+              title: const Text('压缩'),
+              onTap: () => Navigator.pop(ctx, 'compress'),
+            ),
+            ListTile(
               leading: const Icon(Icons.drive_file_rename_outline),
               title: const Text('重命名'),
               onTap: () => Navigator.pop(ctx, 'rename'),
@@ -108,12 +146,40 @@ class _FilesPageState extends State<FilesPage> {
         ),
       ),
     );
-    if (choice == 'rename') {
+    if (choice == 'preview') {
+      if (_isImage(item.name)) {
+        await _openImagePreview(item);
+      } else {
+        await _openEditor(item);
+      }
+    } else if (choice == 'compress') {
+      await _compressItem(item);
+    } else if (choice == 'rename') {
       await _renameItem(item);
     } else if (choice == 'info') {
       _showFileInfo(item);
     } else if (choice == 'delete') {
       await _deleteItem(item);
+    }
+  }
+
+  /// 将 [item] 压缩为同目录下的 .tar.gz 归档（默认格式）。
+  Future<void> _compressItem(FileItem item) async {
+    final parent = _parentPath(item.path);
+    final dest =
+        parent == '/' ? '/${item.name}.tar.gz' : '$parent/${item.name}.tar.gz';
+    try {
+      await widget.service.compress([item.path], dest);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('已压缩到 $dest')),
+      );
+      unawaited(_navigateTo(_currentPath));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('压缩失败：$e'), backgroundColor: Colors.red),
+      );
     }
   }
 
@@ -241,10 +307,111 @@ class _FilesPageState extends State<FilesPage> {
             _attr(ctx, '类型', item.isDir ? '目录' : '文件'),
             _attr(ctx, '权限', item.permissions),
             _attr(ctx, '修改时间', item.modifiedTime.toString()),
+            const SizedBox(height: 16),
+            Align(
+              alignment: Alignment.centerRight,
+              child: FilledButton.tonalIcon(
+                icon: const Icon(Icons.lock_outline),
+                label: const Text('修改权限'),
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  unawaited(_showPermissionEditor(item));
+                },
+              ),
+            ),
           ],
         ),
       ),
     );
+  }
+
+  /// 将形如 `rwxr-xr-x` 的 9 位权限串转换为八进制字符串（如 `755`）。
+  String _permsToOctal(String perms) {
+    final p = perms.padRight(9, '-');
+    int octal = 0;
+    for (int i = 0; i < 9; i += 3) {
+      int v = 0;
+      if (p[i] == 'r') v += 4;
+      if (p[i + 1] == 'w') v += 2;
+      if (p[i + 2] == 'x' || p[i + 2] == 's' || p[i + 2] == 't') v += 1;
+      octal = octal * 8 + v;
+    }
+    return octal.toString();
+  }
+
+  /// 修改文件权限/属主对话框。
+  Future<void> _showPermissionEditor(FileItem item) async {
+    final modeCtrl = TextEditingController(text: _permsToOctal(item.permissions));
+    final ownerCtrl = TextEditingController();
+    final groupCtrl = TextEditingController();
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('修改权限'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: modeCtrl,
+              decoration:
+                  const InputDecoration(hintText: '权限（八进制，如 755）'),
+              keyboardType: TextInputType.number,
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: ownerCtrl,
+              decoration: const InputDecoration(hintText: '属主（可选，如 www-data）'),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: groupCtrl,
+              decoration: const InputDecoration(hintText: '属组（可选）'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('保存'),
+          ),
+        ],
+      ),
+    );
+    if (saved != true) return;
+    final modeStr = modeCtrl.text.trim();
+    if (modeStr.isEmpty) return;
+    final mode = int.tryParse(modeStr, radix: 8);
+    if (mode == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('权限格式无效'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+    final owner = ownerCtrl.text.trim();
+    final group = groupCtrl.text.trim();
+    try {
+      await widget.service.setFilePermission(
+        item.path,
+        mode: mode,
+        owner: owner.isEmpty ? null : owner,
+        group: group.isEmpty ? null : group,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('权限已更新')),
+      );
+      unawaited(_navigateTo(_currentPath));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('修改失败：$e'), backgroundColor: Colors.red),
+      );
+    }
   }
 
   Widget _attr(BuildContext ctx, String label, String value) {

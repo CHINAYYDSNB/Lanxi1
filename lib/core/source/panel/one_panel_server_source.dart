@@ -5,6 +5,8 @@
 /// [FallbackServerSource] can retry them via SSH.
 library;
 
+import 'dart:typed_data';
+
 import 'package:lanxi/core/source/exceptions.dart';
 import 'package:lanxi/core/source/interactive_session.dart';
 import 'package:lanxi/core/source/panel_detector.dart';
@@ -39,8 +41,24 @@ class OnePanelServerSource implements ServerSource {
   Future<List<FileItem>> listDir(String path) => _adapter.listDir(path);
 
   @override
-  Future<CompressResult> compress(List<String> src, String dest) =>
-      _adapter.compress(src, dest);
+  Future<CompressResult> compress(
+    List<String> src,
+    String dest, {
+    CompressFormat format = CompressFormat.tarGz,
+  }) =>
+      _adapter.compress(src, dest, format: format);
+
+  @override
+  Future<Uint8List> readFileBytes(String path) => _adapter.readFileBytes(path);
+
+  @override
+  Future<void> setFilePermission(
+    String path, {
+    required int mode,
+    String? owner,
+    String? group,
+  }) =>
+      _adapter.setFilePermission(path, mode: mode, owner: owner, group: group);
 
   @override
   Future<String> readFile(String path) => _adapter.readFile(path);

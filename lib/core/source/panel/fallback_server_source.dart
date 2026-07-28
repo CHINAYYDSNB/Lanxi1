@@ -4,6 +4,8 @@
 /// This is the default source when an API key is configured.
 library;
 
+import 'dart:typed_data';
+
 import 'package:lanxi/core/logger.dart';
 import 'package:lanxi/core/source/exceptions.dart';
 import 'package:lanxi/core/source/interactive_session.dart';
@@ -56,12 +58,41 @@ class FallbackServerSource implements ServerSource {
   }
 
   @override
-  Future<CompressResult> compress(List<String> src, String dest) async {
+  Future<CompressResult> compress(
+    List<String> src,
+    String dest, {
+    CompressFormat format = CompressFormat.tarGz,
+  }) async {
     try {
-      return await panel.compress(src, dest);
+      return await panel.compress(src, dest, format: format);
     } on PanelFallbackException catch (e) {
       appLogger.w('Fallback: API compress failed — using SSH ($e)');
-      return await ssh.compress(src, dest);
+      return await ssh.compress(src, dest, format: format);
+    }
+  }
+
+  @override
+  Future<Uint8List> readFileBytes(String path) async {
+    try {
+      return await panel.readFileBytes(path);
+    } on PanelFallbackException catch (e) {
+      appLogger.w('Fallback: API readFileBytes failed — using SSH ($e)');
+      return await ssh.readFileBytes(path);
+    }
+  }
+
+  @override
+  Future<void> setFilePermission(
+    String path, {
+    required int mode,
+    String? owner,
+    String? group,
+  }) async {
+    try {
+      await panel.setFilePermission(path, mode: mode, owner: owner, group: group);
+    } on PanelFallbackException catch (e) {
+      appLogger.w('Fallback: API setFilePermission failed — using SSH ($e)');
+      await ssh.setFilePermission(path, mode: mode, owner: owner, group: group);
     }
   }
 

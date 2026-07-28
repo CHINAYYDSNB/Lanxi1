@@ -138,9 +138,15 @@ class SshServerSource implements ServerSource {
   }
 
   @override
-  Future<CompressResult> compress(List<String> src, String dest) async {
+  Future<CompressResult> compress(
+    List<String> src,
+    String dest, {
+    CompressFormat format = CompressFormat.tarGz,
+  }) async {
     final srcJoined = src.map((s) => '"$s"').join(' ');
-    final cmd = "tar -czf '$dest' $srcJoined";
+    final cmd = format == CompressFormat.zip
+        ? "zip -r '$dest' $srcJoined"
+        : "tar -czf '$dest' $srcJoined";
     final start = DateTime.now();
     final output = await _exec(cmd);
     final duration = DateTime.now().difference(start);
@@ -150,6 +156,32 @@ class SshServerSource implements ServerSource {
       durationMs: duration.inMilliseconds,
       success: output.isEmpty,
     );
+  }
+
+  @override
+  Future<Uint8List> readFileBytes(String path) async {
+    // base64-encode on the host so binary content survives the text channel,
+    // then decode locally.
+    final b64 = await _exec("base64 -w0 -- '$path'");
+    return base64.decode(b64.trim());
+  }
+
+  @override
+  Future<void> setFilePermission(
+    String path, {
+    required int mode,
+    String? owner,
+    String? group,
+  }) async {
+    // 1Panel exposes [mode] as a decimal int (e.g. 493 == 0o755); chmod needs
+    // the octal representation, so convert before emitting the command.
+    final modeStr = mode.toRadixString(8);
+    await _exec("chmod $modeStr '$path'");
+    if (owner != null && owner.isNotEmpty) {
+      final own =
+          group != null && group.isNotEmpty ? "$owner:$group" : owner;
+      await _exec("chown '$own' '$path'");
+    }
   }
 
   @override

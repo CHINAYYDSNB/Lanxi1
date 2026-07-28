@@ -7,6 +7,7 @@
 library;
 
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 
@@ -67,6 +68,31 @@ class DioPanelApiClient {
         'Dio error on POST $path',
         original: e,
       );
+    }
+  }
+
+  /// Perform a GET request and return raw response bytes (file download).
+  Future<Uint8List> getBytes(
+    String path, {
+    Map<String, dynamic>? queryParameters,
+  }) async {
+    try {
+      final response = await _dio.get<List<int>>(
+        path,
+        queryParameters: queryParameters,
+        options: Options(responseType: ResponseType.bytes),
+      );
+      if (response.statusCode == null ||
+          response.statusCode! < 200 ||
+          response.statusCode! >= 300) {
+        throw PanelFallbackException(
+          'HTTP ${response.statusCode}',
+          statusCode: response.statusCode,
+        );
+      }
+      return Uint8List.fromList(response.data ?? const <int>[]);
+    } on DioException catch (e) {
+      throw PanelFallbackException('Dio error on GET $path', original: e);
     }
   }
 

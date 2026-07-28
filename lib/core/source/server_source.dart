@@ -1,5 +1,7 @@
 import 'package:lanxi/core/source/interactive_session.dart';
 import 'package:lanxi/core/source/panel_detector.dart';
+import 'dart:typed_data';
+
 import 'package:lanxi/models/compress_result.dart';
 import 'package:lanxi/models/domain/file_item.dart';
 import 'package:lanxi/models/domain/system_stats.dart';
@@ -31,8 +33,29 @@ abstract class ServerSource {
   /// Create a new file or directory at [path].
   Future<void> createFile(String path, {required bool isDir, String? content});
 
-  /// Compress [src] items into [dest] archive.
-  Future<CompressResult> compress(List<String> src, String dest);
+  /// Read a file's raw bytes (for binary preview / download).
+  ///
+  /// SSH sources `base64`-encode then decode; panel sources hit the
+  /// `GET /files/download` endpoint. Text editors should use [readFile].
+  Future<Uint8List> readFileBytes(String path);
+
+  /// Change a file's permission mode and/or ownership.
+  ///
+  /// [mode] is the numeric (decimal) permission, e.g. `0o755` → `493`.
+  /// [owner]/[group] are optional user/group names (e.g. `www-data`).
+  Future<void> setFilePermission(
+    String path, {
+    required int mode,
+    String? owner,
+    String? group,
+  });
+
+  /// Compress [src] items into [dest] archive using [format].
+  Future<CompressResult> compress(
+    List<String> src,
+    String dest, {
+    CompressFormat format = CompressFormat.tarGz,
+  });
 
   // ── Monitoring ──
 

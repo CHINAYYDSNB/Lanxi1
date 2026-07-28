@@ -9,6 +9,7 @@ import 'package:lanxi/core/source/interactive_session.dart';
 import 'package:lanxi/core/ssh/ssh_connection.dart';
 import 'package:lanxi/core/ssh/ssh_session_pool.dart';
 import 'package:lanxi/core/source/ssh_server_source.dart';
+import 'package:lanxi/models/compress_result.dart';
 import 'package:lanxi/models/domain/system_stats.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -212,6 +213,81 @@ overlay         51200000  25600000  25600000      50% /
       await source.createFile('/tmp/dir', isDir: true);
 
       verify(() => mockClient.execute(any())).called(1);
+    });
+
+    test('readFileBytes base64-decodes remote output', () async {
+      final payload = utf8.encode('binary\x00data');
+      final b64 = base64.encode(payload);
+      when(() => mockClient.execute(any()))
+          .thenAnswer((_) => _sessionReturning(b64));
+
+      final result = await source.readFileBytes('/tmp/img.png');
+
+      expect(result, payload);
+      final cmd = verify(() => mockClient.execute(captureAny())).captured.single
+          as String;
+      expect(cmd, contains('base64'));
+    });
+
+    test('setFilePermission emits chmod (octal) and chown', () async {
+      when(() => mockClient.execute(any()))
+          .thenAnswer((_) => _sessionReturning(''));
+
+      await source.setFilePermission(
+        '/tmp/a',
+        mode: 493,
+        owner: 'www-data',
+        group: 'www-data',
+      );
+
+      final cmds = verify(() => mockClient.execute(captureAny()))
+          .captured
+          .cast<String>();
+      expect(cmds.any((c) => c.contains('chmod 755')), isTrue);
+      expect(
+        cmds.any((c) => c.contains("chown 'www-data:www-data'")),
+        isTrue,
+      );
+    });
+
+    test('setFilePermission skips chown when owner is null', () async {
+      when(() => mockClient.execute(any()))
+          .thenAnswer((_) => _sessionReturning(''));
+
+      await source.setFilePermission('/tmp/a', mode: 420);
+
+      final cmds = verify(() => mockClient.execute(captureAny()))
+          .captured
+          .cast<String>();
+      expect(cmds.length, 1);
+      expect(cmds.single, contains('chmod 644'));
+    });
+
+    test('compress defaults to tar.gz', () async {
+      when(() => mockClient.execute(any()))
+          .thenAnswer((_) => _sessionReturning(''));
+
+      final res = await source.compress(['/tmp/a'], '/tmp/a.tar.gz');
+
+      expect(res.success, isTrue);
+      final cmd = verify(() => mockClient.execute(captureAny())).captured.single
+          as String;
+      expect(cmd, contains('tar -czf'));
+    });
+
+    test('compress zip uses zip -r', () async {
+      when(() => mockClient.execute(any()))
+          .thenAnswer((_) => _sessionReturning(''));
+
+      await source.compress(
+        ['/tmp/a'],
+        '/tmp/a.zip',
+        format: CompressFormat.zip,
+      );
+
+      final cmd = verify(() => mockClient.execute(captureAny())).captured.single
+          as String;
+      expect(cmd, contains('zip -r'));
     });
   });
 

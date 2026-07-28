@@ -32,3 +32,14 @@ class CompressResult {
         'errorMessage': errorMessage,
       };
 }
+
+/// Supported archive formats for [ServerSource.compress].
+///
+/// `apiType` matches the 1Panel V2 `type` field.
+enum CompressFormat {
+  zip('zip'),
+  tarGz('tar.gz');
+
+  final String apiType;
+  const CompressFormat(this.apiType);
+}

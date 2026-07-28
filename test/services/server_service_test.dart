@@ -1,5 +1,7 @@
 // ignore_for_file: require_trailing_commas
 
+import 'dart:typed_data';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lanxi/core/source/interactive_session.dart';
 import 'package:lanxi/core/source/panel_detector.dart';
@@ -28,6 +30,10 @@ SystemStats _snapshot() => SystemStats(
 void main() {
   late _MockSource mockSource;
   late ServerService service;
+
+  setUpAll(() {
+    registerFallbackValue(CompressFormat.tarGz);
+  });
 
   setUp(() {
     mockSource = _MockSource();
@@ -82,7 +88,8 @@ void main() {
 
   group('compress', () {
     test('delegates to source', () async {
-      when(() => mockSource.compress(any(), any())).thenAnswer(
+      when(() => mockSource.compress(any(), any(),
+          format: any(named: 'format'))).thenAnswer(
         (_) async => const CompressResult(
           destPath: '/tmp/out.tar.gz',
           size: 5000,
@@ -91,11 +98,54 @@ void main() {
         ),
       );
 
-      final result = await service.compress(['/tmp/a'], '/tmp/out.tar.gz');
+      final result = await service.compress(
+        ['/tmp/a'],
+        '/tmp/out.tar.gz',
+        format: CompressFormat.zip,
+      );
 
       expect(result.success, true);
       expect(result.destPath, '/tmp/out.tar.gz');
-      verify(() => mockSource.compress(['/tmp/a'], '/tmp/out.tar.gz')).called(1);
+      verify(() => mockSource.compress(
+            ['/tmp/a'],
+            '/tmp/out.tar.gz',
+            format: CompressFormat.zip,
+          )).called(1);
+    });
+  });
+
+  group('readFileBytes & setFilePermission', () {
+    test('readFileBytes delegates to source', () async {
+      when(() => mockSource.readFileBytes(any()))
+          .thenAnswer((_) async => Uint8List.fromList([7]));
+
+      final bytes = await service.readFileBytes('/x.png');
+
+      expect(bytes, [7]);
+      verify(() => mockSource.readFileBytes('/x.png')).called(1);
+    });
+
+    test('setFilePermission delegates to source', () async {
+      when(() => mockSource.setFilePermission(
+            any(),
+            mode: any(named: 'mode'),
+            owner: any(named: 'owner'),
+            group: any(named: 'group'),
+          )).thenAnswer((_) async {});
+
+      await service.setFilePermission(
+        '/x',
+        mode: 493,
+        owner: 'www',
+        group: 'www',
+      );
+
+      verify(() => mockSource.setFilePermission(
+            '/x',
+            mode: 493,
+            owner: 'www',
+            group: 'www',
+          )).called(1);
     });
   });
 
