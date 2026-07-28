@@ -295,7 +295,8 @@ class _ContainerTile extends StatelessWidget {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.1),
+                  // withOpacity (not withValues) on purpose: withValues needs Flutter 3.27+, CI gate is 3.24.x
+                  color: statusColor.withOpacity(0.1), // ignore: deprecated_member_use
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
